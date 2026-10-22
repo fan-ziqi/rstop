@@ -200,8 +200,8 @@ impl App {
             ("Chart time window".into(), KeyCode::Char('W')),
             ("Zoom in".into(), KeyCode::Char('z')),
             ("Zoom out".into(), KeyCode::Char('Z')),
-            ("Faster sampling".into(), KeyCode::Char('+')),
-            ("Slower sampling".into(), KeyCode::Char('-')),
+            ("Faster sampling".into(), KeyCode::Char('-')),
+            ("Slower sampling".into(), KeyCode::Char('+')),
         ]);
         if self.view == View::Network {
             items.push((
@@ -246,8 +246,8 @@ impl App {
             ("Time window", KeyCode::Char('W')),
             ("Zoom in", KeyCode::Char('z')),
             ("Zoom out", KeyCode::Char('Z')),
-            ("Faster sampling", KeyCode::Char('+')),
-            ("Slower sampling", KeyCode::Char('-')),
+            ("Faster sampling", KeyCode::Char('-')),
+            ("Slower sampling", KeyCode::Char('+')),
             ("Save preferences", KeyCode::Char('w')),
             ("Cycle theme", KeyCode::Char('c')),
             ("Toggle loopback", KeyCode::Char('i')),

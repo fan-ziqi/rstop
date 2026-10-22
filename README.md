@@ -104,7 +104,7 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `Enter`, `d`, `F6` | Open detail pane; full details; contextual tools |
 | `F7`, `m`, `l` | Process output/workload logs; object tools; logs |
 | `,`, `.` | Seek backward/forward during replay |
-| `W`, `z/Z`, `+/-` | Chart time window; zoom; faster/slower sampling |
+| `W`, `z/Z`, `-/+` | Chart time window; zoom; decrease/increase sampling interval (also click the top `-` / `+`) |
 | `F1`, `:` | Help; all commands |
 | `F2`, `c`, `w` | Settings; theme; save configuration |
 | `C`, `Shift+←/→` | Process columns; move the visible column window |

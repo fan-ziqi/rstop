@@ -583,12 +583,12 @@ impl Input<'_> {
                 app.config.cycle_theme(true);
             }
             KeyCode::Char('i') => app.config.show_loopback = !app.config.show_loopback,
-            KeyCode::Char('+') | KeyCode::Char('=') => {
+            KeyCode::Char('-') => {
                 app.config.interval_ms = app.config.interval_ms.saturating_sub(250).max(250);
                 interval.store(app.config.interval_ms, Ordering::Relaxed);
                 app.set_time_window(app.config.time_window_seconds);
             }
-            KeyCode::Char('-') => {
+            KeyCode::Char('+') | KeyCode::Char('=') => {
                 app.config.interval_ms = (app.config.interval_ms + 250).min(10000);
                 interval.store(app.config.interval_ms, Ordering::Relaxed);
                 app.set_time_window(app.config.time_window_seconds);
@@ -927,6 +927,92 @@ mod tests {
     }
 
     #[test]
+    fn header_sampling_buttons_match_their_numbers_and_work_across_views_and_sizes() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+
+        for (width, height) in [(60, 18), (100, 30), (160, 48)] {
+            run(|input, app| {
+                let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                for view in app.views() {
+                    app.set_view(view);
+                    for replay in [false, true] {
+                        app.replay = replay;
+                        terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                        let header = (0..width)
+                            .map(|x| terminal.backend().buffer()[(x, 0)].symbol())
+                            .collect::<String>();
+                        assert!(!header.contains("LIVE") && !header.contains("Window"));
+                        assert_eq!(header.contains("REPLAY"), replay);
+                        assert!(header.contains("[-] 1.00s [+]"), "{header}");
+                        for (symbol, expected) in [('-', 750), ('+', 1000)] {
+                            let rect = app
+                                .controls
+                                .iter()
+                                .find(|(rect, key)| rect.y == 0 && *key == KeyCode::Char(symbol))
+                                .unwrap()
+                                .0;
+                            let label = (rect.x..rect.right())
+                                .map(|x| terminal.backend().buffer()[(x, rect.y)].symbol())
+                                .collect::<String>();
+                            assert_eq!(label, format!("[{symbol}]"));
+                            input.mouse(
+                                app,
+                                MouseEvent {
+                                    kind: MouseEventKind::Down(MouseButton::Left),
+                                    column: rect.x + 1,
+                                    row: rect.y,
+                                    modifiers: KeyModifiers::NONE,
+                                },
+                            );
+                            let key = input.queued_key.take().unwrap();
+                            assert_eq!(key.code, KeyCode::Char(symbol));
+                            input.key(app, key);
+                            assert_eq!(app.config.interval_ms, expected);
+                            assert_eq!(input.interval.load(Ordering::Relaxed), expected);
+                        }
+                    }
+                }
+                app.set_time_window(3600);
+                for _ in 0..5 {
+                    press(input, app, KeyCode::Char('-'));
+                }
+                assert_eq!(app.config.interval_ms, 250);
+                assert_eq!(app.config.time_window_seconds, 900);
+                for _ in 0..45 {
+                    press(input, app, KeyCode::Char('+'));
+                }
+                assert_eq!(app.config.interval_ms, 10000);
+                assert_eq!(input.interval.load(Ordering::Relaxed), 10000);
+                press(input, app, KeyCode::Char('='));
+                assert_eq!(app.config.interval_ms, 10000);
+                app.set_view(View::Processes);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                press(input, app, KeyCode::F(2));
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                let rect = app
+                    .controls
+                    .iter()
+                    .find(|(rect, key)| rect.y == 0 && *key == KeyCode::Char('-'))
+                    .unwrap()
+                    .0;
+                input.mouse(
+                    app,
+                    MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: rect.x + 1,
+                        row: rect.y,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                assert!(!app.settings);
+                assert!(input.queued_key.is_none());
+                assert_eq!(app.config.interval_ms, 10000);
+            });
+        }
+    }
+
+    #[test]
     fn overview_gpu_buttons_match_visible_labels_and_switch_devices_across_layouts() {
         use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
         use rstop::config::LayoutNode;
@@ -971,7 +1057,11 @@ mod tests {
                             .unwrap();
                     terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
                     if layout == "balanced" && width < 100 {
-                        assert!(app.controls.is_empty());
+                        assert!(
+                            !app.controls
+                                .iter()
+                                .any(|(_, key)| matches!(key, KeyCode::Char('[' | ']')))
+                        );
                         return;
                     }
                     for (key, label, selected) in
@@ -1061,7 +1151,11 @@ mod tests {
                 let mut terminal =
                     ratatui::Terminal::new(ratatui::backend::TestBackend::new(60, 18)).unwrap();
                 terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
-                assert!(app.controls.is_empty());
+                assert!(
+                    !app.controls
+                        .iter()
+                        .any(|(_, key)| matches!(key, KeyCode::Char('[' | ']')))
+                );
                 assert!(
                     !app.display_menu()
                         .items

@@ -268,6 +268,7 @@ Keys always appear in [brackets]. Click a control or press its key.
   [F3] Filter  Search the current table
   [F4] Sort    Choose a field or reverse the current order
   [F5] View    Panel focus, chart window, zoom and sampling
+  [-/+]       Decrease / increase sampling interval; also clickable at the top
   [Enter]      Open the selected row's detail pane; [d] full details
   [F6] Tools   Actions for the current resource or selected object
   [F7] Logs    Process output, service journal or container logs

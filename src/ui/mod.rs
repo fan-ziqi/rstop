@@ -552,14 +552,30 @@ fn context_message(app: &App) -> String {
     crate::diagnostics::summary(app)
 }
 fn header(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
-    let state = if app.replay { "REPLAY" } else { "LIVE" };
-    let right = format!(
-        "{state} · Window {} · {:.2}s · up {} ",
-        controls::window_label(app),
-        app.config.interval_ms as f64 / 1000.,
-        duration(app.snapshot.uptime)
-    );
-    let width = Line::raw(&right).width().min(area.width as usize) as u16;
+    use crossterm::event::KeyCode;
+    let mut parts = vec![];
+    if app.replay {
+        parts.push(("REPLAY · ".into(), None));
+    }
+    parts.extend([
+        (
+            format!("[{}]", controls::window_label(app)),
+            Some(KeyCode::Char('W')),
+        ),
+        (" · ".into(), None),
+        ("[-]".into(), Some(KeyCode::Char('-'))),
+        (
+            format!(" {:.2}s ", app.config.interval_ms as f64 / 1000.),
+            None,
+        ),
+        ("[+]".into(), Some(KeyCode::Char('+'))),
+        (format!(" · up {} ", duration(app.snapshot.uptime)), None),
+    ]);
+    let width = parts
+        .iter()
+        .map(|(text, _)| Line::raw(text.as_str()).width())
+        .sum::<usize>()
+        .min(area.width as usize) as u16;
     let mut left = vec![
         Span::styled(" rstop ", Style::new().fg(p.mint).bold()),
         Span::styled(
@@ -577,12 +593,23 @@ fn header(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
         Paragraph::new(Line::from(left)),
         Rect::new(area.x, area.y, area.width.saturating_sub(width + 1), 1),
     );
-    frame.render_widget(
-        Paragraph::new(right)
-            .alignment(Alignment::Right)
-            .style(Style::new().fg(p.muted)),
-        Rect::new(area.right() - width, area.y, width, 1),
-    );
+    let mut x = area.right() - width;
+    for (text, key) in parts {
+        let width = (Line::raw(text.as_str()).width() as u16).min(area.right() - x);
+        let rect = Rect::new(x, area.y, width, 1);
+        frame.render_widget(
+            Paragraph::new(text).style(if key.is_some() {
+                Style::new().fg(p.blue).bold()
+            } else {
+                Style::new().fg(p.muted)
+            }),
+            rect,
+        );
+        if let Some(key) = key {
+            app.controls.push((rect, key));
+        }
+        x += width;
+    }
 }
 
 fn tabs(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
