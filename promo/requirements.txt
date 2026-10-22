@@ -2,3 +2,4 @@ Pillow>=10.0,<13
 numpy>=1.24,<3
 CairoSVG>=2.7,<3
 imageio-ffmpeg==0.6.0
+pyte>=0.8,<1
