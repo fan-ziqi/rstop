@@ -175,6 +175,11 @@ def windows(command, env, output):
     stderr = Path(diagnostics.name) / "stderr.txt"
 
     def send(data):
+        if data == b"\x1b\x1b":
+            # ConPTY's legacy VT decoder treats raw ESC ESC as one escape sequence.
+            # Send two unmodified down/up pairs in one write using win32-input-mode.
+            # https://github.com/microsoft/terminal/blob/main/doc/specs/%234999%20-%20Improved%20keyboard%20handling%20in%20Conpty.md
+            data = b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_" * 2
         count = w.DWORD()
         require(write(input_write, c.create_string_buffer(data), len(data), c.byref(count), None))
 
