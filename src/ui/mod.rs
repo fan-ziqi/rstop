@@ -625,7 +625,10 @@ fn footer_buttons(
 ) -> Vec<(crossterm::event::KeyEvent, &'static str)> {
     use crossterm::event::{KeyCode as K, KeyEvent, KeyModifiers};
     let key = |code| KeyEvent::new(code, KeyModifiers::NONE);
-    let quit = (KeyEvent::new(K::Char('c'), KeyModifiers::CONTROL), "Quit");
+    let quit = (
+        KeyEvent::new(K::Char('c'), KeyModifiers::CONTROL),
+        "Quit (Esc Esc)",
+    );
     let mut buttons = if editing {
         vec![(key(K::Enter), "Apply"), (key(K::Esc), "Cancel")]
     } else {
