@@ -1,6 +1,7 @@
 mod control;
 mod input;
 mod inspect;
+mod inventory;
 mod sampling;
 use anyhow::Result;
 #[cfg(all(test, target_os = "linux"))]
@@ -12,7 +13,7 @@ use crossterm::{
     execute,
 };
 use inspect::load_logs;
-use rstop::{STOP, app::App, collector::Collector, config::Config, discovery, model::*, ui};
+use rstop::{STOP, app::App, collector::Collector, config::Config, ui};
 #[cfg(unix)]
 use std::io::Write;
 use std::{
@@ -28,6 +29,10 @@ use std::{
 };
 
 pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
+    let initial_snapshot = args
+        .replay
+        .is_none()
+        .then(rstop::collector::initial_snapshot);
     let interval = Arc::new(AtomicU64::new(config.interval_ms));
     let preferences = Arc::new(RwLock::new(config.clone()));
     let full_sampling = args.full_sampling || args.record.is_some();
@@ -41,11 +46,8 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 .as_ref()
                 .is_some_and(|l| l.contains_panel("processes")),
     );
-    let mut initial_inventory = Inventory::default();
-    initial_inventory.extra.insert(
-        "Discovery state".into(),
-        serde_json::json!({"containers":false,"services":false,"extras":false}),
-    );
+    let initial_inventory = inventory::Cache::default();
+    let inventory_revision = initial_inventory.revision.clone();
     let inventory = Arc::new(RwLock::new(initial_inventory));
     let connection_worker = args.replay.is_none().then(|| {
         let sources = sources.clone();
@@ -58,42 +60,12 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         })
     });
     let connections = connection_worker.as_ref().map(|(cache, _)| cache.clone());
-    let discovery_worker = {
-        let sources = sources.clone();
-        let inventory = inventory.clone();
-        let preferences = preferences.clone();
-        let live = args.replay.is_none();
-        thread::Builder::new()
-            .name("rstop-discovery".into())
-            .spawn(move || {
-                let mut rates = discovery::InventoryRates::default();
-                while !STOP.load(Ordering::Relaxed) {
-                    let needed = sources.needs();
-                    if !live || !(needed.containers || needed.services || needed.extras) {
-                        thread::park_timeout(Duration::from_secs(1));
-                        continue;
-                    }
-                    let settings = preferences.read().map(|c| c.clone()).unwrap_or_default();
-                    let mut data = discovery::discover_selected(
-                        &settings,
-                        needed.containers,
-                        needed.services,
-                        needed.extras,
-                    );
-                    rates.apply(&mut data);
-                    if let Ok(mut current) = inventory.write() {
-                        *current = data;
-                    }
-                    let until = Instant::now() + Duration::from_secs(5);
-                    while Instant::now() < until
-                        && sources.needs() == needed
-                        && !STOP.load(Ordering::Relaxed)
-                    {
-                        thread::park_timeout(Duration::from_millis(50));
-                    }
-                }
-            })?
-    };
+    let discovery_workers = inventory::workers(
+        inventory.clone(),
+        preferences.clone(),
+        sources.clone(),
+        args.replay.is_none(),
+    )?;
     let (tx, rx) = mpsc::sync_channel(1);
     let replay_data = args
         .replay
@@ -125,7 +97,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 } else {
                     None
                 };
-                crate::wait_until(Instant::now() + sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+                let cpu_ready = Instant::now() + sysinfo::MINIMUM_CPU_UPDATE_INTERVAL;
                 let mut recording_error = None::<String>;
                 while !STOP.load(Ordering::Relaxed) {
                     let began = Instant::now();
@@ -154,10 +126,12 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                             .expect("live collector")
                             .collect_selected(&config, needed.processes, needed.gpu_processes)
                     };
+                    let mut sampled_revision = 0;
                     if replay_data.is_none()
                         && let Ok(current) = inventory.read()
                     {
-                        data.apply_inventory(current.clone());
+                        sampled_revision = current.revision.load(Ordering::Relaxed);
+                        data.apply_inventory(current.snapshot());
                     }
                     if let Some(cache) = &connections
                         && let Ok(sample) = cache.read()
@@ -195,9 +169,15 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     ) {
                         break;
                     }
-                    let until = began + Duration::from_millis(config.interval_ms);
+                    // Publish immediately, then obtain the first CPU rate as soon as it is valid.
+                    let until = if began < cpu_ready && replay_data.is_none() {
+                        cpu_ready
+                    } else {
+                        began + Duration::from_millis(config.interval_ms)
+                    };
                     while Instant::now() < until
                         && sources.needs() == needed
+                        && inventory_revision.load(Ordering::Relaxed) == sampled_revision
                         && !STOP.load(Ordering::Relaxed)
                     {
                         thread::park_timeout(Duration::from_millis(20));
@@ -215,6 +195,9 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
     }));
     enable_mouse_capture()?;
     let mut app = App::new(config.clone());
+    if let Some(snapshot) = initial_snapshot {
+        app.snapshot = snapshot;
+    }
     app.set_view(crate::wanted_view(args, &config));
     app.gpu_section = crate::gpu_section(args);
     app.replay = args.replay.is_some();
@@ -284,7 +267,9 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
             }
             if sources.activate(app.view, app.has_process_table()) {
                 sampler.thread().unpark();
-                discovery_worker.thread().unpark();
+                for worker in &discovery_workers {
+                    worker.thread().unpark();
+                }
                 if let Some((_, worker)) = &connection_worker {
                     worker.thread().unpark();
                 }
@@ -380,14 +365,18 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         worker.thread().unpark();
     }
     sampler.thread().unpark();
-    discovery_worker.thread().unpark();
+    for worker in &discovery_workers {
+        worker.thread().unpark();
+    }
     if let Some((_, worker)) = &connection_worker {
         worker.thread().unpark();
     }
     drop(terminal);
     drop(guard);
     let _ = sampler.join();
-    let _ = discovery_worker.join();
+    for worker in discovery_workers {
+        let _ = worker.join();
+    }
     if let Some((_, worker)) = connection_worker {
         let _ = worker.join();
     }

@@ -71,6 +71,28 @@ pub fn discover_selected(
     services: bool,
     extras: bool,
 ) -> Inventory {
+    discover_selected_impl(config, containers, services, extras, true, &mut |_| {})
+}
+
+/// Publish initial container lists before statistics; platform GPU counters use their own worker.
+pub fn discover_background(
+    config: &crate::config::Config,
+    containers: bool,
+    services: bool,
+    extras: bool,
+    mut publish: impl FnMut(&Inventory),
+) -> Inventory {
+    discover_selected_impl(config, containers, services, extras, false, &mut publish)
+}
+
+fn discover_selected_impl(
+    config: &crate::config::Config,
+    containers: bool,
+    services: bool,
+    extras: bool,
+    platform_gpu: bool,
+    publish: &mut impl FnMut(&Inventory),
+) -> Inventory {
     let mut inventory = Inventory {
         updated_at: unix_time(),
         ..Inventory::default()
@@ -87,12 +109,19 @@ pub fn discover_selected(
         }
         #[cfg(unix)]
         if runtime == "docker"
-            && let Ok(data) =
-                docker_endpoint().and_then(|endpoint| crate::docker::discover(&endpoint))
+            && let Ok(data) = docker_endpoint().and_then(|endpoint| {
+                crate::docker::discover_with_updates(&endpoint, |partial| {
+                    let mut ready = inventory.clone();
+                    ready.runtimes.push(runtime.into());
+                    ready.containers.extend(partial.containers.clone());
+                    publish(&ready);
+                })
+            })
         {
             inventory.runtimes.push(runtime.into());
             inventory.containers.extend(data.containers);
             inventory.notes.extend(data.notes);
+            publish(&inventory);
             continue;
         }
         match command(
@@ -103,6 +132,9 @@ pub fn discover_selected(
             Ok(output) => {
                 inventory.runtimes.push(runtime.to_string());
                 let mut containers = parse_containers(runtime, &output);
+                let mut ready = inventory.clone();
+                ready.containers.extend(containers.clone());
+                publish(&ready);
                 if containers
                     .iter()
                     .any(|c| c.state == "running" || c.state == "Up")
@@ -124,6 +156,7 @@ pub fn discover_selected(
                 }
             }
         }
+        publish(&inventory);
     }
     if services {
         discover_services(&mut inventory);
@@ -137,7 +170,11 @@ pub fn discover_selected(
     });
     if extras {
         inventory.listeners = listeners();
-        inventory.extra = crate::advanced::discover(config);
+        inventory.extra = if platform_gpu {
+            crate::advanced::discover(config)
+        } else {
+            crate::advanced::discover_without_platform_gpu(config)
+        };
     }
     inventory.extra.insert(
         "Discovery state".into(),

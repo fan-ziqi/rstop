@@ -73,6 +73,82 @@ fn draw(app: &mut App, width: u16, height: u16) -> String {
 }
 
 #[test]
+fn overview_panels_keep_their_positions_while_device_data_arrives() {
+    fn anchors(app: &mut App, width: u16, height: u16) -> Vec<(String, u16, u16)> {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let mut positions = vec![];
+        for y in 0..height {
+            let row: String = (0..width).map(|x| buffer[(x, y)].symbol()).collect();
+            for panel in [" CPU ", " MEMORY ", " GPU ", " STORAGE ", " NETWORK "] {
+                if let Some(index) = row.find(panel)
+                    && row[..index].ends_with('╭')
+                {
+                    let column = row[..index].chars().count() as u16;
+                    positions.push((panel.into(), column, y));
+                }
+            }
+        }
+        positions
+    }
+    for layout in ["balanced", "compute"] {
+        for gpu in [true, false] {
+            for (width, height) in [(60, 18), (120, 40), (160, 48), (240, 70)] {
+                let mut app = App::new(Config {
+                    layout: layout.into(),
+                    collect_gpu: gpu,
+                    ..Default::default()
+                });
+                app.snapshot = rstop::collector::initial_snapshot();
+                assert!(!app.snapshot.cores.is_empty());
+                assert!(app.snapshot.memory.total > 0);
+                let expected = anchors(&mut app, width, height);
+                let mut data = fixture();
+                data.cores = vec![50.; app.snapshot.cores.len()];
+                if !gpu {
+                    data.gpus.clear();
+                }
+                app.ingest(data);
+                assert_eq!(
+                    anchors(&mut app, width, height),
+                    expected,
+                    "{layout} {width}x{height}"
+                );
+                app.snapshot.gpus.clear();
+                assert_eq!(anchors(&mut app, width, height), expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn platform_gpu_loading_state_is_independent_of_host_samples() {
+    let mut app = App::new(Config::default());
+    app.set_view(View::Gpu);
+    app.ingest(Snapshot {
+        timestamp: 100,
+        inventory: Inventory {
+            updated_at: 100,
+            extra: [(
+                "Discovery state".into(),
+                serde_json::json!({"platform_gpu":false}),
+            )]
+            .into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    assert!(draw(&mut app, 140, 44).contains("Loading GPU telemetry"));
+    app.snapshot
+        .inventory
+        .extra
+        .get_mut("Discovery state")
+        .unwrap()["platform_gpu"] = true.into();
+    assert!(draw(&mut app, 140, 44).contains("No readable GPU telemetry"));
+}
+
+#[test]
 fn unsampled_gpu_process_count_is_unknown_rather_than_zero() {
     let mut app = App::new(Config::default());
     let mut data = fixture();

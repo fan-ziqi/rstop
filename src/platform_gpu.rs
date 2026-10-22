@@ -3,6 +3,25 @@ use crate::model::*;
 use serde_json::Value;
 #[cfg(target_os = "macos")]
 use serde_json::json;
+/// Apple counters are independent of optional system_profiler/powermetrics probes.
+#[cfg(target_os = "macos")]
+pub fn discover(
+    config: &crate::config::Config,
+) -> std::collections::BTreeMap<String, serde_json::Value> {
+    let mut extra = std::collections::BTreeMap::new();
+    if config.collect_gpu {
+        let value = crate::discovery::command(
+            "ioreg",
+            &["-r", "-c", "IOAccelerator", "-l"],
+            std::time::Duration::from_secs(3),
+        )
+        .map(|output| json!({"output":output,"sampled_at":crate::collector::unix_time()}))
+        .unwrap_or_else(|error| json!({"error":error.to_string()}));
+        extra.insert("Apple GPU / Neural Engine".into(), value);
+    }
+    extra
+}
+
 pub fn merge(snapshot: &mut Snapshot) {
     #[cfg(target_os = "macos")]
     {
@@ -10,6 +29,9 @@ pub fn merge(snapshot: &mut Snapshot) {
             && value.get("error").is_none()
         {
             let text = value["output"].as_str().unwrap_or_default();
+            if text.trim().is_empty() {
+                return;
+            }
             let metric = |name: &str| {
                 regex::Regex::new(&format!(
                     "\\\"{}\\\"\\s*=\\s*([0-9.]+)",
@@ -39,6 +61,7 @@ pub fn merge(snapshot: &mut Snapshot) {
                 extra,
                 ..Default::default()
             });
+            snapshot.gpu_status = "Apple GPU · IOKit IOAccelerator".into();
         }
     }
     #[cfg(windows)]

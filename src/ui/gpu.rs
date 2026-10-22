@@ -97,7 +97,17 @@ pub(super) fn gpu_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palet
                 "GPU collection disabled",
                 "GPU queries are turned off for this session",
             )
-        } else if app.snapshot.timestamp == 0 && !app.replay {
+        } else if !app.replay
+            && (app.snapshot.timestamp == 0
+                || app
+                    .snapshot
+                    .inventory
+                    .extra
+                    .get("Discovery state")
+                    .and_then(|s| s.get("platform_gpu"))
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(false))
+        {
             (
                 "Loading GPU telemetry",
                 "Collecting device data in the background",

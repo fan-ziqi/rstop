@@ -11,6 +11,11 @@ use crate::{
     model::{bytes, percent},
 };
 use ratatui::prelude::*;
+
+fn gpu_panel_visible(app: &App) -> bool {
+    app.config.collect_gpu || app.replay && !app.snapshot.gpus.is_empty()
+}
+
 pub(super) fn overview(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     match app.config.display.overview_panel.as_str() {
         "cpu" => {
@@ -22,11 +27,7 @@ pub(super) fn overview(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
             return;
         }
         "gpu" => {
-            if app.snapshot.gpus.is_empty() {
-                frame.render_widget(block(" GPU · no readable telemetry ", p, p.blue), area);
-            } else {
-                gpu_card(frame, area, app, p);
-            }
+            gpu_card(frame, area, app, p);
             return;
         }
         "storage" => {
@@ -48,7 +49,7 @@ pub(super) fn overview(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
             .spacing(1)
             .split(area);
         cpu(frame, cols[0], app, p);
-        if app.snapshot.gpus.is_empty() {
+        if !gpu_panel_visible(app) {
             memory(frame, cols[1], app, p);
         } else {
             gpu_card(frame, cols[1], app, p);
@@ -80,12 +81,12 @@ pub(super) fn overview(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
     .spacing(1)
     .split(area);
     cpu(frame, rows[0], app, p);
-    let count = if app.snapshot.gpus.is_empty() { 3 } else { 4 };
+    let count = if gpu_panel_visible(app) { 4 } else { 3 };
     let cards = Layout::horizontal(vec![Constraint::Ratio(1, count); count as usize])
         .spacing(1)
         .split(rows[1]);
     memory(frame, cards[0], app, p);
-    let offset = if app.snapshot.gpus.is_empty() { 1 } else { 2 };
+    let offset = if gpu_panel_visible(app) { 2 } else { 1 };
     if offset == 2 {
         gpu_card(frame, cards[1], app, p);
     }
@@ -97,9 +98,7 @@ pub(super) fn layout_visible(node: &crate::config::LayoutNode, app: &App) -> boo
     use crate::config::LayoutNode::*;
     match node {
         Panel { panel } => match panel.as_str() {
-            "gpu" => !app.snapshot.gpus.is_empty(),
-            "network" => !app.snapshot.networks.is_empty(),
-            "storage" => !app.snapshot.disks.is_empty() || !app.snapshot.disk_io.is_empty(),
+            "gpu" => gpu_panel_visible(app),
             _ => true,
         },
         Split { children, .. } => children.iter().any(|node| layout_visible(node, app)),
@@ -761,6 +760,12 @@ pub(super) fn memory(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
 
 pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     let Some(gpu) = app.snapshot.gpus.get(app.selected_gpu) else {
+        let title = if app.snapshot.timestamp == 0 && !app.replay {
+            " GPU · collecting telemetry "
+        } else {
+            " GPU · no readable telemetry "
+        };
+        frame.render_widget(block(title, p, p.blue), area);
         return;
     };
     let sampled = app

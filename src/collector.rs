@@ -14,6 +14,35 @@ pub fn unix_time() -> u64 {
         .as_secs()
 }
 
+/// Cheap first-frame data, before driver initialization, disk scans, or CPU rate sampling.
+pub fn initial_snapshot() -> Snapshot {
+    let mut system = System::new();
+    system.refresh_cpu_usage();
+    system.refresh_memory();
+    let load = System::load_average();
+    Snapshot {
+        hostname: System::host_name().unwrap_or_else(|| "localhost".into()),
+        uptime: System::uptime(),
+        cpu_name: system
+            .cpus()
+            .first()
+            .map(|c| c.brand().trim().to_string())
+            .unwrap_or_default(),
+        cores: vec![0.; system.cpus().len()],
+        load: [load.one, load.five, load.fifteen],
+        memory: Memory {
+            total: system.total_memory(),
+            used: system.used_memory(),
+            available: system.available_memory(),
+            free: Some(system.free_memory()),
+            cached: cached_memory(),
+            swap_total: system.total_swap(),
+            swap_used: system.used_swap(),
+        },
+        ..Default::default()
+    }
+}
+
 pub struct Collector {
     system: System,
     networks: Networks,

@@ -281,7 +281,10 @@ pub(crate) struct Inventory {
     pub containers: Vec<Container>,
     pub notes: Vec<String>,
 }
-pub(crate) fn discover(endpoint: &str) -> Result<Inventory> {
+pub(crate) fn discover_with_updates(
+    endpoint: &str,
+    mut publish: impl FnMut(&Inventory),
+) -> Result<Inventory> {
     let socket = endpoint
         .strip_prefix("unix://")
         .ok_or_else(|| anyhow::anyhow!("Not a Unix-socket Docker endpoint"))?;
@@ -344,9 +347,14 @@ pub(crate) fn discover(endpoint: &str) -> Result<Inventory> {
             ..Default::default()
         });
     }
+    let mut inventory = Inventory {
+        containers,
+        notes: Vec::new(),
+    };
+    publish(&inventory);
     // Bound concurrency; the Engine supplies the same pair of CPU samples used by docker stats.
     let mut notes = Vec::new();
-    for group in containers.chunks_mut(8) {
+    for group in inventory.containers.chunks_mut(8) {
         if Instant::now() >= end {
             notes.push("Docker statistics reached the query deadline".into());
             break;
@@ -378,7 +386,8 @@ pub(crate) fn discover(endpoint: &str) -> Result<Inventory> {
         notes.extend(errors);
         notes.truncate(8);
     }
-    Ok(Inventory { containers, notes })
+    inventory.notes = notes;
+    Ok(inventory)
 }
 
 #[cfg(test)]
@@ -425,6 +434,7 @@ mod tests {
         let owned = OwnedSocket(path);
         let listener = UnixListener::bind(&owned.0).unwrap();
         listener.set_nonblocking(true).unwrap();
+        let (listed_tx, listed_rx) = std::sync::mpsc::channel();
         let server = std::thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(4);
             let mut paths = Vec::new();
@@ -459,6 +469,8 @@ mod tests {
                     ])
                 } else {
                     assert_eq!(path, "/containers/aaaaaaaaaaaa/stats?stream=false");
+                    listed_rx.recv_timeout(Duration::from_secs(1))
+                        .expect("the container list must be published before statistics are ready");
                     serde_json::json!({"cpu_stats":{"cpu_usage":{"total_usage":200},"system_cpu_usage":1000,"online_cpus":8},"precpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":500},"memory_stats":{"usage":1000,"limit":2000,"stats":{"inactive_file":100}}})
                 }.to_string();
                 write!(
@@ -471,7 +483,11 @@ mod tests {
             }
             paths
         });
-        let result = discover(&format!("unix://{}", owned.0.display()));
+        let result = discover_with_updates(&format!("unix://{}", owned.0.display()), |partial| {
+            assert_eq!(partial.containers.len(), 2);
+            assert!(partial.containers[0].cpu.is_none());
+            listed_tx.send(()).unwrap();
+        });
         let paths = server.join().unwrap();
         let inventory = result.unwrap();
         assert_eq!(paths.len(), 2);

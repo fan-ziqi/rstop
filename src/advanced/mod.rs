@@ -1,6 +1,7 @@
 mod probes;
 #[cfg(target_os = "linux")]
 use crate::collector::rate;
+pub use probes::discover_without_platform_gpu;
 pub use probes::{discover, folder_size, local_http};
 #[cfg(target_os = "linux")]
 use std::collections::HashSet;

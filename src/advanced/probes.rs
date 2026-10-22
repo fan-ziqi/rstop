@@ -14,6 +14,16 @@ use std::{
     time::{Duration, Instant},
 };
 pub fn discover(config: &Config) -> BTreeMap<String, Value> {
+    let extra = discover_without_platform_gpu(config);
+    #[cfg(target_os = "macos")]
+    let extra = extra
+        .into_iter()
+        .chain(crate::platform_gpu::discover(config))
+        .collect();
+    extra
+}
+
+pub fn discover_without_platform_gpu(config: &Config) -> BTreeMap<String, Value> {
     let mut extra = BTreeMap::new();
     #[cfg(target_os = "linux")]
     {
@@ -203,15 +213,6 @@ pub fn discover(config: &Config) -> BTreeMap<String, Value> {
             &["-nP", "-i", "-FpcnT"],
             3,
         );
-        if config.collect_gpu {
-            probe(
-                &mut extra,
-                "Apple GPU / Neural Engine",
-                "ioreg",
-                &["-r", "-c", "IOAccelerator", "-l"],
-                3,
-            );
-        }
         probe(
             &mut extra,
             "Apple power / thermal",
