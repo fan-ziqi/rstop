@@ -1,0 +1,75 @@
+name: Installation checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to verify
+        required: true
+        default: '0.1.0'
+      upgrade_from:
+        description: Optional previous version, or previous to discover it
+        required: false
+  workflow_call:
+    inputs:
+      plan:
+        type: string
+        required: false
+      version:
+        type: string
+        default: ''
+      source:
+        type: string
+        default: artifacts
+      upgrade_from:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: install (${{ matrix.target }})
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { runner: macos-15-intel, target: x86_64-apple-darwin }
+          - { runner: macos-15, target: aarch64-apple-darwin }
+          - { runner: windows-2022, target: x86_64-pc-windows-msvc }
+          - { runner: windows-11-arm, target: aarch64-pc-windows-msvc }
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERIFY_VERSION: ${{ inputs.version || github.ref_name }}
+      VERIFY_SOURCE: ${{ inputs.source || 'published' }}
+      VERIFY_UPGRADE_FROM: ${{ inputs.upgrade_from }}
+      VERIFY_TARGET: ${{ matrix.target }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Download candidate release artifacts
+        if: env.VERIFY_SOURCE == 'artifacts'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: artifacts-*
+          path: release-artifacts
+          merge-multiple: true
+      - name: Verify download, install, CLI and interactive terminal
+        shell: bash
+        run: |
+          args=(--version "$VERIFY_VERSION" --target "$VERIFY_TARGET" --output "$RUNNER_TEMP/install-report.json")
+          if [[ "$VERIFY_SOURCE" == artifacts ]]; then args+=(--artifacts "$GITHUB_WORKSPACE/release-artifacts"); fi
+          if [[ -n "$VERIFY_UPGRADE_FROM" ]]; then args+=(--upgrade-from "$VERIFY_UPGRADE_FROM"); fi
+          python scripts/verify_install.py "${args[@]}"
+      - name: Save installation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: install-${{ env.VERIFY_SOURCE }}-${{ matrix.target }}
+          path: ${{ runner.temp }}/install-report.json
+          if-no-files-found: error

@@ -16,6 +16,22 @@ SHELLS = {"bash": "rstop.bash", "zsh": "_rstop", "fish": "rstop.fish",
           "powershell": "rstop.ps1", "elvish": "rstop.elv"}
 
 
+def workflow(check=False):
+    """Keep cargo-dist's announce step gated on native installation acceptance."""
+    path = ROOT / ".github/workflows/release.yml"
+    text = path.read_text(encoding="utf-8")
+    before, announce = text.split("\n  announce:\n", 1)
+    original = "if: ${{ always() && needs.host.result == 'success' }}"
+    guarded = "if: ${{ always() && needs.host.result == 'success' && needs.custom-install-checks.result == 'success' }}"
+    if check:
+        assert guarded in announce, "Release publication must require all native installation checks"
+    elif original in announce:
+        path.write_text(before + "\n  announce:\n" + announce.replace(original, guarded, 1), encoding="utf-8")
+    else:
+        assert guarded in announce, "Unrecognized cargo-dist announce condition"
+    print("Release installation gate verified")
+
+
 def run(binary, *args, env=None, check=True):
     result = subprocess.run([str(Path(binary).resolve()), *map(str, args)],
                             capture_output=True, timeout=120, env=env)
@@ -40,8 +56,8 @@ def docs(binary, check=False):
     print("Manual and five shell completions verified" if check else "Generated manual and completions")
 
 
-def smoke(binary):
-    version = re.search(r'^version = "([^"]+)"$', (ROOT / "Cargo.toml").read_text(encoding="utf-8"), re.M)[1]
+def smoke(binary, version=None):
+    version = version or re.search(r'^version = "([^"]+)"$', (ROOT / "Cargo.toml").read_text(encoding="utf-8"), re.M)[1]
     assert run(binary, "--version").stdout.decode().strip() == f"rstop {version}"
     help_text = run(binary, "--help").stdout.decode()
     for command in ("monitor", "snapshot", "sample", "record", "replay", "export", "gpu",
@@ -101,7 +117,7 @@ def safe_member(name):
         raise RuntimeError(f"Unsafe archive member: {name}")
 
 
-def archive(directory, target):
+def archive(directory, target, version=None, check_cli=True):
     directory = Path(directory)
     suffix = ".zip" if "windows" in target else ".tar.xz"
     path = directory / f"rstop-{target}{suffix}"
@@ -130,28 +146,39 @@ def archive(directory, target):
         executable = "rstop.exe" if "windows" in target else "rstop"
         binaries = [file for file in files if file.is_file() and file.name == executable]
         assert len(binaries) == 1
-        smoke(binaries[0])
-    print(f"Verified packaged executable and checksum: {target}")
+        if check_cli:
+            smoke(binaries[0], version)
+        result = {"binary_sha256": hashlib.sha256(binaries[0].read_bytes()).hexdigest(),
+                  "licenses_sha256": hashlib.sha256(next(file for file in files if file.name == "THIRD-PARTY-LICENSES.html").read_bytes()).hexdigest()}
+    print(f"Verified release archive and checksum: {target}")
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    command = commands.add_parser("workflow")
+    command.add_argument("--check", action="store_true")
     for name in ("docs", "smoke"):
         command = commands.add_parser(name)
         command.add_argument("--binary", required=True)
         if name == "docs":
             command.add_argument("--check", action="store_true")
+        else:
+            command.add_argument("--expected-version")
     command = commands.add_parser("archive")
     command.add_argument("--directory", required=True)
     command.add_argument("--target", required=True)
+    command.add_argument("--expected-version")
     args = parser.parse_args()
-    if args.command == "docs":
+    if args.command == "workflow":
+        workflow(args.check)
+    elif args.command == "docs":
         docs(args.binary, args.check)
     elif args.command == "smoke":
-        smoke(args.binary)
+        smoke(args.binary, args.expected_version)
     else:
-        archive(args.directory, args.target)
+        archive(args.directory, args.target, args.expected_version)
 
 
 if __name__ == "__main__":

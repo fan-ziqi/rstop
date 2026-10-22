@@ -1,0 +1,19 @@
+name: Public installation checks
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/install-checks.yml
+    with:
+      source: published
+      version: ${{ github.ref_name }}
+      upgrade_from: previous
