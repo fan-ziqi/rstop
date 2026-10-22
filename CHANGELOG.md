@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Faster resource loading, background process sampling and clearer detail-pane controls.
+- Clickable sampling controls, mirrored CPU history, per-device GPU views and searchable Device info.
+- Text selection and clipboard copying across pages and popups, with stable selected text and scrollbars that reach the final row.
+- An update menu, improved process shortcuts and popup interactions, and double-Escape quit controls.
+
 ## 0.1.2
 
 - English update notifications, progress, completion messages and action buttons.

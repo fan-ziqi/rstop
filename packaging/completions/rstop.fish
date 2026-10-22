@@ -45,7 +45,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_needs_command" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_needs_command" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_needs_command" -l config -d 'Alternate configuration file' -r -F
@@ -112,7 +112,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand monitor" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand monitor" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand monitor" -l config -d 'Alternate configuration file' -r -F
@@ -164,7 +164,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand snapshot" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand snapshot" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand snapshot" -l config -d 'Alternate configuration file' -r -F
@@ -216,7 +216,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand sample" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand sample" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand sample" -l config -d 'Alternate configuration file' -r -F
@@ -268,7 +268,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand record" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand record" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand record" -l config -d 'Alternate configuration file' -r -F
@@ -320,7 +320,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand replay" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand replay" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand replay" -l config -d 'Alternate configuration file' -r -F
@@ -373,7 +373,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand export" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand export" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand export" -l config -d 'Alternate configuration file' -r -F
@@ -425,7 +425,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand gpu; and not __fish_seen_subcommand_from select help" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand gpu; and not __fish_seen_subcommand_from select help" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand gpu; and not __fish_seen_subcommand_from select help" -l config -d 'Alternate configuration file' -r -F
@@ -480,7 +480,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand gpu; and __fish_seen_subcommand_from select" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand gpu; and __fish_seen_subcommand_from select" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand gpu; and __fish_seen_subcommand_from select" -l config -d 'Alternate configuration file' -r -F
@@ -534,7 +534,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand network; and not __fish_seen_subcommand_from connections check capture read help" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand network; and not __fish_seen_subcommand_from connections check capture read help" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand network; and not __fish_seen_subcommand_from connections check capture read help" -l config -d 'Alternate configuration file' -r -F
@@ -610,7 +610,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from connections" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from connections" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from connections" -l config -d 'Alternate configuration file' -r -F
@@ -664,7 +664,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from check" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from check" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from check" -l config -d 'Alternate configuration file' -r -F
@@ -720,7 +720,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from capture" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from capture" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from capture" -l config -d 'Alternate configuration file' -r -F
@@ -772,7 +772,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from read" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from read" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand network; and __fish_seen_subcommand_from read" -l config -d 'Alternate configuration file' -r -F
@@ -830,7 +830,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand doctor" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand doctor" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand doctor" -l config -d 'Alternate configuration file' -r -F
@@ -883,7 +883,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand config; and not __fish_seen_subcommand_from path write help" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand config; and not __fish_seen_subcommand_from path write help" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand config; and not __fish_seen_subcommand_from path write help" -l config -d 'Alternate configuration file' -r -F
@@ -938,7 +938,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from path" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from path" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from path" -l config -d 'Alternate configuration file' -r -F
@@ -990,7 +990,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from write" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from write" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand config; and __fish_seen_subcommand_from write" -l config -d 'Alternate configuration file' -r -F
@@ -1045,7 +1045,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand completions" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand completions" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand completions" -l config -d 'Alternate configuration file' -r -F
@@ -1097,7 +1097,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand man" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand man" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand man" -l config -d 'Alternate configuration file' -r -F
@@ -1149,7 +1149,7 @@ services\t''
 explorer\t''
 history\t''
 events\t''"
-complete -c rstop -n "__fish_rstop_using_subcommand update" -l gpu-panel -d 'Initial GPU panel focus; all panels remain on one page (history aliases summary)' -r -f -a "summary\t''
+complete -c rstop -n "__fish_rstop_using_subcommand update" -l gpu-panel -d 'Initial GPU display; device opens Device info (history aliases summary)' -r -f -a "summary\t''
 history\t''
 device\t''"
 complete -c rstop -n "__fish_rstop_using_subcommand update" -l config -d 'Alternate configuration file' -r -F

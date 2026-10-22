@@ -171,3 +171,31 @@ fn multiple_gpus_stack_vertically_and_follow_the_selected_device_after_resizing(
         }
     }
 }
+
+#[test]
+fn device_info_final_field_and_scrollbar_reach_the_bottom_together() {
+    let mut app = app(1);
+    app.snapshot.gpus[0].extra.insert(
+        "nvlink_zz_end_marker".into(),
+        serde_json::json!("DEVICE_FIELDS_END"),
+    );
+    app.focus_panel(2);
+    for (width, height) in [(60, 18), (80, 24), (120, 36), (160, 48), (275, 73)] {
+        render(&mut app, width, height);
+        app.move_selection(isize::MAX);
+        let buffer = render(&mut app, width, height);
+        let area = app.table_rect;
+        let last_line = (area.x..area.right())
+            .map(|x| buffer[(x, area.bottom() - 1)].symbol())
+            .collect::<String>();
+        assert!(
+            last_line.contains("DEVICE_FIELDS_END"),
+            "{width}x{height}: {last_line}"
+        );
+        assert_eq!(
+            buffer[(area.right(), area.bottom() - 1)].symbol(),
+            "█",
+            "{width}x{height}: device scrollbar stops above final row"
+        );
+    }
+}

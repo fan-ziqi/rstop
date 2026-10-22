@@ -4,6 +4,48 @@ use rstop::app::App;
 use std::time::{Duration, Instant};
 impl Input<'_> {
     pub fn mouse(&mut self, app: &mut App, mouse: MouseEvent) {
+        let position = (mouse.column, mouse.row).into();
+        // Finish an existing drag before popup-specific handlers consume it.
+        if app.text_selection.dragging()
+            && matches!(
+                mouse.kind,
+                MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
+            )
+        {
+            app.text_selection
+                .extend(position, matches!(mouse.kind, MouseEventKind::Up(_)));
+            self.last_escape = None;
+            if app.text_selection.selected_text().is_some() {
+                self.last_click = None;
+            }
+            return;
+        }
+        let screen = if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+            app.text_regions
+                .iter()
+                .find(|region| region.is_screen() && region.buffer.area.contains(position))
+                .cloned()
+        } else {
+            None
+        };
+        if matches!(
+            mouse.kind,
+            MouseEventKind::Down(_) | MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+        ) {
+            app.text_selection.clear();
+        }
+        self.mouse_action(app, mouse);
+        // Ordinary clicks retain their existing actions. A subsequent drag uses
+        // the text visible at mouse-down, even if a live table refreshes meanwhile.
+        if let Some(screen) = screen
+            && !app.text_selection.dragging()
+            && self.queued_key.is_none()
+        {
+            app.text_selection.begin(screen, position);
+        }
+    }
+
+    fn mouse_action(&mut self, app: &mut App, mouse: MouseEvent) {
         self.last_escape = None;
         if app.update_notice.is_some() {
             if matches!(
@@ -76,17 +118,6 @@ impl Input<'_> {
             return; // Never send this click to the parent popup or resource table.
         }
         let position = (mouse.column, mouse.row).into();
-        if app.text_selection.dragging()
-            && matches!(
-                mouse.kind,
-                MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
-            )
-        {
-            let finish = matches!(mouse.kind, MouseEventKind::Up(_));
-            app.text_selection.extend(position, finish);
-            self.last_click = None;
-            return;
-        }
         if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
             app.text_selection.clear();
             let label = !has_popup
@@ -98,7 +129,7 @@ impl Input<'_> {
                 && let Some(region) = app
                     .text_regions
                     .iter()
-                    .find(|region| region.buffer.area.contains(position))
+                    .find(|region| !region.is_screen() && region.buffer.area.contains(position))
                     .cloned()
             {
                 app.text_selection.begin(region, position);

@@ -65,6 +65,9 @@ pub(super) fn gpu_fields(frame: &mut Frame, area: Rect, app: &mut App, p: Palett
         .get(app.selected_gpu)
         .map(|gpu| crate::fields::gpu(gpu, &app.filter))
         .unwrap_or_default();
+    app.table_offset = app
+        .table_offset
+        .min(fields.len().saturating_sub(app.table_rect.height as usize));
     let grouped = table.width >= 85;
     let rows = fields.iter().map(|(group, name, value)| {
         if grouped {
@@ -114,9 +117,11 @@ pub(super) fn gpu_fields(frame: &mut Frame, area: Rect, app: &mut App, p: Palett
         );
     }
     if fields.len() > app.table_rect.height as usize {
-        let mut scroll = ScrollbarState::new(fields.len())
-            .position(app.table_offset)
-            .viewport_content_length(app.table_rect.height as usize);
+        let mut scroll = super::scrollbar::state(
+            fields.len(),
+            app.table_rect.height as usize,
+            app.table_offset,
+        );
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)

@@ -257,3 +257,34 @@ fn full_gpu_summary_and_live_process_focus_render_on_small_and_wide_terminals() 
         }
     }
 }
+
+#[test]
+fn sidebar_end_shows_the_final_field_and_places_the_thumb_at_the_track_bottom() {
+    for (width, height) in [(60, 18), (80, 24), (120, 30), (160, 48), (220, 70)] {
+        let mut app = App::new(Config::default());
+        let mut sample = snapshot(0);
+        sample.processes[0].write_total = 987654321;
+        app.ingest(sample);
+        app.set_view(View::Processes);
+        app.remember_selection();
+        assert!(app.open_selection());
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
+        app.jump_selection(true);
+        terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
+        let text = &app.text_regions[0].buffer;
+        let area = text.area;
+        let last_line = (area.x..area.right())
+            .map(|x| text[(x, area.bottom() - 1)].symbol())
+            .collect::<String>();
+        assert!(
+            last_line.contains("987654321"),
+            "{width}x{height}: {last_line}"
+        );
+        assert_eq!(
+            terminal.backend().buffer()[(area.right(), area.bottom() - 1)].symbol(),
+            "█",
+            "{width}x{height}: scrollbar must touch the bottom when the final field is visible"
+        );
+    }
+}

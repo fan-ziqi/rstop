@@ -42,6 +42,77 @@ fn click(input: &mut Input<'_>, app: &mut App, x: u16, y: u16) {
 }
 
 #[test]
+fn device_info_wheel_and_end_reach_the_last_field_and_thumb_after_resize() {
+    run(|input, app| {
+        let mut extra: std::collections::BTreeMap<_, _> = (0..40)
+            .map(|i| (format!("nvlink_field_{i:02}"), serde_json::json!(i)))
+            .collect();
+        extra.insert(
+            "nvlink_zz_end_marker".into(),
+            serde_json::json!("DEVICE_FIELDS_END"),
+        );
+        app.snapshot.gpus.push(rstop::model::Gpu {
+            uuid: "scroll-gpu".into(),
+            name: "Scroll GPU".into(),
+            extra,
+            ..Default::default()
+        });
+        app.set_view(rstop::app::View::Gpu);
+        press(input, app, KeyCode::Char('I'));
+        assert!(app.gpu_info_open());
+        for (width, height) in [(60, 18), (160, 48), (80, 24), (220, 70)] {
+            draw(app, width, height);
+            press(input, app, KeyCode::Home);
+            let terminal = draw(app, width, height);
+            let area = app.table_rect;
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.y)].symbol(),
+                "█"
+            );
+            for _ in 0..app.row_count() / 3 + 2 {
+                input.mouse(
+                    app,
+                    MouseEvent {
+                        kind: MouseEventKind::ScrollDown,
+                        column: area.right(),
+                        row: area.bottom() - 1,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                draw(app, width, height);
+            }
+            let terminal = draw(app, width, height);
+            assert!(
+                text(
+                    &terminal,
+                    Rect::new(area.x, area.bottom() - 1, area.width, 1)
+                )
+                .contains("DEVICE_FIELDS_END")
+            );
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.bottom() - 1)].symbol(),
+                "█"
+            );
+            press(input, app, KeyCode::Home);
+            draw(app, width, height);
+            press(input, app, KeyCode::End);
+            let terminal = draw(app, width, height);
+            assert!(
+                text(
+                    &terminal,
+                    Rect::new(area.x, area.bottom() - 1, area.width, 1)
+                )
+                .contains("DEVICE_FIELDS_END")
+            );
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.bottom() - 1)].symbol(),
+                "█"
+            );
+        }
+    });
+}
+
+#[test]
 fn long_menu_keeps_viewport_stable_and_pages_by_visible_rows() {
     run(|input, app| {
         app.ui_menu = Some(UiMenu::new(

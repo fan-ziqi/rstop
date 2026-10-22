@@ -19,7 +19,7 @@ _rstop() {
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -63,7 +63,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -98,7 +98,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -133,7 +133,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -168,7 +168,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -204,7 +204,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -241,7 +241,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -278,7 +278,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -322,7 +322,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -385,7 +385,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -430,7 +430,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -467,7 +467,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -507,7 +507,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -543,7 +543,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -620,7 +620,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -656,7 +656,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -699,7 +699,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -734,7 +734,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -801,7 +801,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -837,7 +837,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
@@ -872,7 +872,7 @@ _arguments "${_arguments_options[@]}" : \
 '--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
 '--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
 '--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
-'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--gpu-panel=[Initial GPU display; device opens Device info (history aliases summary)]:GPU_PANEL:(summary history device)' \
 '--config=[Alternate configuration file]:CONFIG:_files' \
 '--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
 '--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \

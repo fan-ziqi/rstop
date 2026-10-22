@@ -14,6 +14,9 @@ pub struct TextRegion {
     pub buffer: Buffer,
 }
 impl TextRegion {
+    pub fn is_screen(&self) -> bool {
+        self.id.starts_with("screen:")
+    }
     pub fn capture(id: String, offset: (usize, u16), area: Rect, source: &Buffer) -> Self {
         let mut buffer = Buffer::empty(area);
         for y in area.y..area.bottom() {
@@ -34,6 +37,7 @@ struct Selection {
     anchor: Position,
     head: Position,
     dragging: bool,
+    selected: bool,
 }
 impl TextSelection {
     pub fn clear(&mut self) {
@@ -46,6 +50,7 @@ impl TextSelection {
             anchor: position,
             head: position,
             dragging: true,
+            selected: false,
         });
     }
 
@@ -61,12 +66,13 @@ impl TextSelection {
                 position.y.clamp(area.y, area.bottom() - 1),
             );
             s.dragging = !finish;
+            s.selected |= !finish || s.head != s.anchor;
         }
     }
 
     pub fn selected_text(&self) -> Option<String> {
         let s = self.active.as_ref()?;
-        if s.anchor == s.head {
+        if !s.selected {
             return None;
         }
         let (start, end) = s.bounds();
@@ -104,7 +110,7 @@ impl TextSelection {
             self.clear();
             return;
         }
-        if s.anchor == s.head {
+        if !s.selected {
             return;
         }
         let (start, end) = s.bounds();
@@ -119,8 +125,8 @@ impl TextSelection {
                     && (y != start.y || x + width > start.x)
                     && (y != end.y || x <= end.x);
                 for column in x..(x + width).min(area.right()) {
-                    buffer[(column, y)] = s.region.buffer[(column, y)].clone();
                     if selected {
+                        buffer[(column, y)] = s.region.buffer[(column, y)].clone();
                         buffer[(column, y)].set_style(
                             ratatui::style::Style::new().add_modifier(Modifier::REVERSED),
                         );
@@ -138,5 +144,55 @@ impl Selection {
         } else {
             (self.head, self.anchor)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::Style;
+
+    #[test]
+    fn screen_selection_freezes_selected_cells_while_other_values_keep_refreshing() {
+        let area = Rect::new(0, 0, 12, 1);
+        let mut old = Buffer::empty(area);
+        old.set_string(0, 0, "old 42", Style::default());
+        let mut selection = TextSelection::default();
+        selection.begin(
+            TextRegion::capture("screen:test".into(), (0, 0), area, &old),
+            (0, 0).into(),
+        );
+        selection.extend((2, 0).into(), true);
+        let mut live = Buffer::empty(area);
+        live.set_string(0, 0, "new 99", Style::default());
+        let regions = [TextRegion::capture(
+            "screen:test".into(),
+            (0, 0),
+            area,
+            &live,
+        )];
+        selection.render(&mut live, &regions);
+        assert_eq!(selection.selected_text().as_deref(), Some("old"));
+        assert_eq!(
+            (0..6).map(|x| live[(x, 0)].symbol()).collect::<String>(),
+            "old 99"
+        );
+    }
+
+    #[test]
+    fn a_single_cell_drag_is_copyable_but_a_click_is_not_a_selection() {
+        let area = Rect::new(0, 0, 4, 1);
+        let mut buffer = Buffer::empty(area);
+        buffer.set_string(0, 0, "0", Style::default());
+        let mut selection = TextSelection::default();
+        selection.begin(
+            TextRegion::capture("screen:test".into(), (0, 0), area, &buffer),
+            (0, 0).into(),
+        );
+        selection.extend((0, 0).into(), true);
+        assert!(selection.selected_text().is_none());
+        selection.extend((0, 0).into(), false);
+        selection.extend((0, 0).into(), true);
+        assert_eq!(selection.selected_text().as_deref(), Some("0"));
     }
 }

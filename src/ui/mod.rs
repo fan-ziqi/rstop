@@ -9,6 +9,7 @@ mod panes;
 mod popups;
 mod processes;
 mod resources;
+mod scrollbar;
 mod selection;
 mod tags;
 mod updates;
@@ -515,6 +516,37 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             region.buffer.area,
             frame.buffer_mut(),
         );
+    }
+    let has_popup = !app.popup_rect.is_empty();
+    let text_area = if has_popup { app.popup_rect } else { area };
+    if !text_area.is_empty() {
+        // Every visible surface is selectable. Narrow text regions keep their
+        // wrapping semantics, while this final region covers all other content.
+        let title = if has_popup {
+            (text_area.x..text_area.right())
+                .map(|x| frame.buffer_mut()[(x, text_area.y)].symbol().to_owned())
+                .collect::<String>()
+        } else {
+            String::new()
+        };
+        let scope = format!("screen:{:?}:gpu={}:{title}", app.view, app.selected_gpu);
+        let offset = if app.detail.is_some() || app.help {
+            (app.detail_scroll, app.detail_column)
+        } else if app.prompt.is_some() || app.update_notice.is_some() {
+            (app.dialog.scroll, 0)
+        } else {
+            (
+                app.table_offset,
+                app.horizontal_scroll.min(u16::MAX as usize) as u16,
+            )
+        };
+        app.text_regions
+            .push(crate::app::text_selection::TextRegion::capture(
+                scope,
+                offset,
+                text_area,
+                frame.buffer_mut(),
+            ));
     }
     app.text_selection
         .render(frame.buffer_mut(), &app.text_regions);

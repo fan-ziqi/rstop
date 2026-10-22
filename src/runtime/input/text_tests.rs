@@ -70,8 +70,13 @@ fn report_text_does_not_select_background_or_include_search_and_buttons() {
         app.open_selection();
         app.detail = Some(("Report".into(), "alpha中文\nbeta".into()));
         draw(app);
-        assert_eq!(app.text_regions.len(), 1);
-        let region = app.text_regions[0].clone();
+        let reports: Vec<_> = app
+            .text_regions
+            .iter()
+            .filter(|region| !region.is_screen())
+            .collect();
+        assert_eq!(reports.len(), 1);
+        let region = reports[0].clone();
         assert!(region.id.starts_with("report:"));
         let area = region.buffer.area;
         app.text_selection.begin(region, (area.x, area.y).into());
@@ -92,7 +97,61 @@ fn report_text_does_not_select_background_or_include_search_and_buttons() {
         assert_eq!(app.clipboard_request.as_deref(), Some("alpha中文\nbeta"));
         app.ui_menu = Some(rstop::app::UiMenu::new("Tools", vec![], 0));
         draw(app);
-        assert!(app.text_regions.is_empty());
+        assert!(app.text_regions.iter().all(|region| region.is_screen()));
         assert!(app.text_selection.selected_text().is_none());
+    });
+}
+
+#[test]
+fn sidebar_wheel_and_alt_end_reach_the_final_field_after_resize() {
+    run(|input, app| {
+        app.snapshot.processes[0].command = "long argument 中文 ".repeat(100);
+        app.snapshot.processes[0].write_total = 987654321;
+        app.remember_selection();
+        assert!(app.open_selection());
+        let identity = app.selected_process;
+        for (width, height) in [(160, 48), (60, 18), (120, 30), (220, 70)] {
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+            input.key(app, KeyEvent::new(KeyCode::Home, KeyModifiers::ALT));
+            terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+            let area = app.text_regions[0].buffer.area;
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.y)].symbol(),
+                "█"
+            );
+            let wheel = MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: area.right(),
+                row: area.bottom() - 1,
+                modifiers: KeyModifiers::NONE,
+            };
+            for _ in 0..app.selection_lines / 3 + 2 {
+                input.mouse(app, wheel);
+                terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+            }
+            let bottom = app.selection_scroll;
+            let last_row = (area.x..area.right())
+                .map(|x| terminal.backend().buffer()[(x, area.bottom() - 1)].symbol())
+                .collect::<String>();
+            assert!(
+                last_row.contains("987654321"),
+                "{width}x{height}: {last_row}"
+            );
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.bottom() - 1)].symbol(),
+                "█"
+            );
+            assert_eq!(app.selected_process, identity);
+            input.key(app, KeyEvent::new(KeyCode::Home, KeyModifiers::ALT));
+            terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+            input.key(app, KeyEvent::new(KeyCode::End, KeyModifiers::ALT));
+            terminal.draw(|frame| ui::draw(frame, app)).unwrap();
+            assert_eq!(app.selection_scroll, bottom);
+            assert_eq!(
+                terminal.backend().buffer()[(area.right(), area.bottom() - 1)].symbol(),
+                "█"
+            );
+        }
     });
 }

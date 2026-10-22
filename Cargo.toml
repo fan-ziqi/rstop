@@ -1,6 +1,6 @@
 [package]
 name = "rstop"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 rust-version = "1.95"
 description = "A unified, GPU-aware local resource monitor for Linux, macOS and Windows"

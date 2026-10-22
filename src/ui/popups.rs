@@ -170,9 +170,7 @@ pub(super) fn signal(frame: &mut Frame, app: &mut App, p: Palette) {
         app.signal_ui.hits.push((rect, signal));
     }
     if total_rows > rows {
-        let mut state = ScrollbarState::new(total_rows)
-            .position(offset)
-            .viewport_content_length(rows);
+        let mut state = super::scrollbar::state(total_rows, rows, offset);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)
@@ -361,9 +359,7 @@ pub(super) fn confirm(frame: &mut Frame, app: &mut App, title: &str, body: &str,
         content,
     );
     if rows > content.height as usize {
-        let mut state = ScrollbarState::new(rows)
-            .position(app.dialog.scroll)
-            .viewport_content_length(content.height as usize);
+        let mut state = super::scrollbar::state(rows, content.height as usize, app.dialog.scroll);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)

@@ -1,4 +1,6 @@
 mod dialogs;
+#[cfg(test)]
+mod global_text_tests;
 mod labels;
 mod menu;
 mod mouse;

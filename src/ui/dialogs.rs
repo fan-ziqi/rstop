@@ -110,9 +110,7 @@ pub(super) fn menu(
         );
     }
     if scrolling {
-        let mut scroll = ScrollbarState::new(items.len())
-            .position(offset)
-            .viewport_content_length(rows);
+        let mut scroll = super::scrollbar::state(items.len(), rows, offset);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)
@@ -292,9 +290,7 @@ pub(super) fn settings(frame: &mut Frame, app: &mut App, p: Palette) {
         ]);
     }
     if options.len() > visible {
-        let mut state = ScrollbarState::new(options.len())
-            .position(offset)
-            .viewport_content_length(visible);
+        let mut state = super::scrollbar::state(options.len(), visible, offset);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)
@@ -465,9 +461,7 @@ fn render_detail(
             frame.buffer_mut(),
         ));
     if rows > content.height as usize {
-        let mut state = ScrollbarState::new(rows)
-            .position(app.detail_scroll)
-            .viewport_content_length(content.height as usize);
+        let mut state = super::scrollbar::state(rows, content.height as usize, app.detail_scroll);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)

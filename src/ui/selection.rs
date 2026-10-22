@@ -372,9 +372,11 @@ fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut co
         }
     }
     if app.selection_lines > app.selection_viewport && inner.height > 0 {
-        let mut state = ScrollbarState::new(app.selection_lines)
-            .viewport_content_length(app.selection_viewport)
-            .position(app.selection_scroll);
+        let mut state = super::scrollbar::state(
+            app.selection_lines,
+            app.selection_viewport,
+            app.selection_scroll,
+        );
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)

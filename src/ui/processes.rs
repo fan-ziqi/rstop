@@ -82,6 +82,8 @@ pub(super) fn process_table(frame: &mut Frame, area: Rect, app: &mut App, p: Pal
     }
     if app.selection_open && app.selected_process().is_some() && area.height >= 9 {
         let (list, detail) = super::selection::split(area);
+        // Finalize visible columns before measuring the sidebar's TABLE FIELDS.
+        table(frame, list, app, p);
         if detail.height >= 14 && detail.width >= 40 {
             let panes =
                 Layout::vertical([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)]).split(detail);
@@ -91,7 +93,6 @@ pub(super) fn process_table(frame: &mut Frame, area: Rect, app: &mut App, p: Pal
         } else {
             super::selection::draw(frame, detail, app, p);
         }
-        table(frame, list, app, p);
     } else {
         app.process_detail_rect = Rect::default();
         table(frame, area, app, p);
