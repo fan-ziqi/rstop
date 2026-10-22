@@ -1,22 +1,26 @@
 """Bounded startup/keyboard-exit check using the platform's real pseudoterminal."""
 import os
+import json
 import subprocess
+import sys
 import time
 
 
 def check(command, env):
-    checks = {
-        name: check_exit(command, env, keys)
-        for name, keys in {
-            "q": (b"q",),
-            "ctrl_c": (b"\x03",),
-            "double_escape": (b"\x1b", b"\x1b"),
-            "buffered_double_escape": (b"\x1b\x1b",),
-            "filter_double_escape": (b"2f", b"q", b"\x1b", b"\x1b"),
-            "filter_buffered_double_escape": (b"2f", b"q", b"\x1b\x1b"),
-            "f10_alias": (b"\x1b[21~",),
-        }.items()
-    }
+    checks = {}
+    for name, keys in {
+        "q": (b"q",),
+        "ctrl_c": (b"\x03",),
+        "double_escape": (b"\x1b", b"\x1b"),
+        "buffered_double_escape": (b"\x1b\x1b",),
+        "filter_double_escape": (b"2f", b"q", b"\x1b", b"\x1b"),
+        "filter_buffered_double_escape": (b"2f", b"q", b"\x1b\x1b"),
+        "f10_alias": (b"\x1b[21~",),
+    }.items():
+        try:
+            checks[name] = check_exit(command, env, keys)
+        except Exception as error:
+            raise RuntimeError(f"Terminal exit check {name} with keys {keys!r}: {error}") from error
     return {"startup": True, "keyboard_exit": True, "exit_keys": checks,
             "output_bytes": sum(result["output_bytes"] for result in checks.values())}
 
@@ -219,3 +223,7 @@ def windows(command, env, output):
         diagnostics.cleanup()
 
     return start, send, finished, close
+
+
+if __name__ == "__main__":
+    print(json.dumps(check(sys.argv[1:], os.environ.copy()), indent=2))

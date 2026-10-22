@@ -36,13 +36,14 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
         if: runner.os == 'Linux'
       - run: cargo test --locked
-      - name: Public CLI and generated documentation
+      - name: Public CLI, terminal and generated documentation
         shell: bash
         run: |
           binary=target/debug/rstop
           if [[ "$RUNNER_OS" == Windows ]]; then binary+=.exe; fi
           python scripts/distribution.py docs --binary "$binary" --check
           python scripts/distribution.py smoke --binary "$binary"
+          python scripts/terminal_smoke.py "$binary" --read-only --no-gpu --interval 250 --config "$RUNNER_TEMP/rstop-terminal.toml"
           python -m unittest discover -s scripts -p 'test_*.py'
           python scripts/distribution.py workflow --check
       - name: Install license collector

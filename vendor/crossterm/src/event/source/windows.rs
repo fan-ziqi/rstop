@@ -4,7 +4,7 @@ use crossterm_winapi::{Console, Handle, InputRecord};
 
 use crate::event::{
     sys::windows::{parse::MouseButtonsPressed, poll::WinApiPoll},
-    Event,
+    Event, KeyEvent,
 };
 
 #[cfg(feature = "event-stream")]
@@ -21,6 +21,7 @@ pub(crate) struct WindowsEventSource {
     poll: WinApiPoll,
     surrogate_buffer: Option<u16>,
     mouse_buttons_pressed: MouseButtonsPressed,
+    pending_key: Option<(KeyEvent, u16)>,
 }
 
 impl WindowsEventSource {
@@ -36,12 +37,19 @@ impl WindowsEventSource {
 
             surrogate_buffer: None,
             mouse_buttons_pressed: MouseButtonsPressed::default(),
+            pending_key: None,
         })
     }
 }
 
 impl EventSource for WindowsEventSource {
     fn try_read(&mut self, timeout: Option<Duration>) -> std::io::Result<Option<InternalEvent>> {
+        if let Some((key, count)) = self.pending_key.take() {
+            if count > 1 {
+                self.pending_key = Some((key, count - 1));
+            }
+            return Ok(Some(InternalEvent::Event(Event::Key(key))));
+        }
         let poll_timeout = PollTimeout::new(timeout);
 
         loop {
@@ -50,7 +58,20 @@ impl EventSource for WindowsEventSource {
                 if event_ready && number != 0 {
                     let event = match self.console.read_single_input_event()? {
                         InputRecord::KeyEvent(record) => {
-                            handle_key_event(record, &mut self.surrogate_buffer)
+                            // Console input can combine identical key presses in one record.
+                            // Preserve every key instead of dropping its repeat count.
+                            let count = if record.key_down {
+                                record.repeat_count.saturating_sub(1)
+                            } else {
+                                0
+                            };
+                            let event = handle_key_event(record, &mut self.surrogate_buffer);
+                            if count > 0 {
+                                if let Some(Event::Key(key)) = &event {
+                                    self.pending_key = Some((*key, count));
+                                }
+                            }
+                            event
                         }
                         InputRecord::MouseEvent(record) => {
                             let mouse_event =
