@@ -189,10 +189,16 @@ mod tests {
                 ));
                 app.detail_scroll = 10;
                 press(input, app, key);
-                assert!(
-                    app.signal.is_some(),
-                    "{key:?} was swallowed by process details"
-                );
+                if key == KeyCode::Char('t') && !sysinfo::SUPPORTED_SIGNALS.contains(&Signal::Term)
+                {
+                    assert!(app.signal.is_none());
+                    assert!(app.status.contains("unsupported"), "{}", app.status);
+                } else {
+                    assert!(
+                        app.signal.is_some(),
+                        "{key:?} was swallowed by process details"
+                    );
+                }
                 assert!(app.detail.is_some());
                 press(input, app, KeyCode::Char('n'));
                 assert!(app.detail.is_some() && app.signal.is_none());

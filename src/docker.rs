@@ -3,7 +3,7 @@ use crate::{
     collector::unix_time,
     model::{Container, duration},
 };
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{
     io::{self, BufRead, BufReader, Read, Write},
@@ -180,14 +180,18 @@ fn get(socket: &str, path: &str, end: Instant) -> Result<Value> {
         path.starts_with('/') && !path.bytes().any(|b| b.is_ascii_control()),
         "Invalid Docker API path"
     );
-    let mut stream = connect(socket, end)?;
-    stream.set_write_timeout(Some(Duration::from_secs(3)))?;
+    let mut stream = connect(socket, end).context("Connect Docker socket")?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(3)))
+        .context("Set Docker write timeout")?;
     write!(
         stream,
         "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
-    )?;
-    let data = body(&mut BufReader::new(Deadline { stream, end }))?;
-    Ok(serde_json::from_slice(&data)?)
+    )
+    .context("Write Docker request")?;
+    let data =
+        body(&mut BufReader::new(Deadline { stream, end })).context("Read Docker response")?;
+    serde_json::from_slice(&data).context("Parse Docker response")
 }
 fn created_at(seconds: u64) -> String {
     let value = seconds as libc::time_t;
@@ -378,7 +382,7 @@ pub(crate) fn discover_with_updates(
             jobs.into_iter()
                 .filter_map(|job| match job.join() {
                     Ok(Ok(())) => None,
-                    Ok(Err(error)) => Some(format!("Docker statistics: {error}")),
+                    Ok(Err(error)) => Some(format!("Docker statistics: {error:#}")),
                     Err(_) => Some("Docker reader failed".into()),
                 })
                 .collect::<Vec<_>>()
@@ -491,7 +495,7 @@ mod tests {
         let paths = server.join().unwrap();
         let inventory = result.unwrap();
         assert_eq!(paths.len(), 2);
-        assert!(inventory.notes.is_empty());
+        assert!(inventory.notes.is_empty(), "{:?}", inventory.notes);
         assert_eq!(inventory.containers.len(), 2);
         assert_eq!(inventory.containers[0].cpu, Some(160.));
         assert_eq!(inventory.containers[0].memory, Some(900));

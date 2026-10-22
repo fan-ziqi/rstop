@@ -1,5 +1,7 @@
 //! Explicit, bounded network investigations. Arguments never go through a shell.
-use crate::{connections::Connection, discovery::command, model::bytes};
+#[cfg(unix)]
+use crate::model::bytes;
+use crate::{connections::Connection, discovery::command};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
