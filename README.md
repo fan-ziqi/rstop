@@ -7,7 +7,7 @@
 
 **One terminal. Your whole system.** A Rust TUI for local CPU, GPU, processes, storage, networking, containers and services on Linux, macOS and Windows.
 
-[Website](https://fan-ziqi.github.io/rstop/) · [Feature and platform coverage](COVERAGE.md) · [Benchmarks](BENCHMARK.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
+[Website](https://fan-ziqi.github.io/rstop/) · [Feature and platform coverage](COVERAGE.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
 
 [![rstop — eight native resource views](docs/assets/rstop-demo.gif)](https://fan-ziqi.github.io/rstop/)
 
@@ -87,7 +87,7 @@ Snapshots and recordings include process command lines. Environments are read on
 
 All eight pages remain accessible with loading or empty-state messages when a device/runtime is absent. Unknown numbers appear as `—`. Driver, CUDA Driver API and NVML versions are shown on the GPU page; CUDA Driver API describes driver support, not the installed Toolkit.
 
-Host and physical-GPU overview histories run from startup. Other sources activate on first use and keep updating after you leave their pages, preserving chart time axes. Connections refresh independently at one second; container/service discovery waits five seconds between scans. `--full-sampling`, recording and headless collection enable all sources immediately. [Measured overhead and comparison limits](BENCHMARK.md).
+Host and physical-GPU overview histories run from startup. Other sources activate on first use and keep updating after you leave their pages, preserving chart time axes. Connections refresh independently at one second; container/service discovery waits five seconds between scans. `--full-sampling`, recording and headless collection enable all sources immediately.
 
 ## Controls
 

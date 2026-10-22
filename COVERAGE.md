@@ -1,32 +1,6 @@
-# Features, fields, and validation scope
+# Features and platform limits
 
-Review date: 2026-10-22. rstop targets a local Linux/macOS/Windows TUI. Web services, remote monitoring, remote containers, and cloud exporters are outside scope. Implemented fields, successful builds, and real hardware validation are separate claims.
-
-## Local feature parity audit
-
-The 2026-10-22 audit is limited, by user choice, to the local terminal capabilities of btop, htop, nvtop, nvitop, bottom and Glances. Remote monitoring, web interfaces and cloud exporters are excluded. It checks **427 upstream configuration, column, plot, meter, plugin and backend entries** at the source revisions below. Aliases and related settings are separate entries; these counts are not a percentage of unique features or a claim of complete parity.
-
-| Product | Native | Partial | Missing | Out of scope |
-|---|---:|---:|---:|---:|
-| btop | 23 | 37 | 21 | 0 |
-| htop | 78 | 6 | 10 | 0 |
-| nvtop | 12 | 13 | 10 | 0 |
-| nvitop | 19 | 4 | 15 | 0 |
-| bottom | 31 | 60 | 48 | 0 |
-| Glances | 19 | 17 | 2 | 2 |
-
-Native means a native collector/state and an explicit local UI/CLI entry exist. Partial means some behavior, fields or control is absent. Generic probes, raw extended data and labels do not establish native feature parity. Hardware/permission limitations are recorded separately from missing implementations. The per-entry source location, status, counterpart and reason are retained in [tests/fixtures/feature-parity.json](tests/fixtures/feature-parity.json), including upstream source pins. The matrix is documentation data, not a runtime dependency.
-
-| Remaining area | Concrete gaps |
-|---|---|
-| btop | Custom core-temperature maps and alternate-provider coverage; mirrored lower CPU/GPU plots; subtree resource aggregation; per-row CPU histories; dead-process retention; independent manual RX/TX maxima; filesystem/fstab/ZFS policies; swap-as-disk; per-resource glyphs and full theme/preset controls; selected battery; clock/log controls |
-| htop | Per-update CTXT versus cumulative CTXT TOTAL; map-corrected library sizes; compressed cgroups/container columns; HugePage/Zram/Zswap/ZFS meters; host SELinux/OpenRC/PCP meters; configurable meter rendering |
-| nvtop | Vendor-complete AMD/Intel/Apple/Qualcomm backends, Ascend/MetaX/Enflame/Tenstorrent/TPU/Rockchip backends, effective-load/HVX/HMX graphs, monitored GPU sets and per-GPU chart options. Generic DRM availability does not close these gaps |
-| nvitop | Compute/graphics-only filtering, CUDA-visible-set inheritance, account-as-free selection heuristics, tolerance and min/max selection policies, output format/separators, GPU/VRAM-specific coloring thresholds, NVLink rate/history presentation |
-| bottom | Persistent disk/sensor/interface include/exclude rules, disk/sensor sorting/columns, temperature graphs, logarithmic disk graphs, cache/ZFS ARC accounting choices, full basic widget mode, focus/legend/scrollbar and per-component style controls |
-| Glances | Native AMP regex/count bounds/refresh/application statistics; normalized VM/Wi-Fi/SMART/RAID/IRQ panels and histories; background service/port health monitoring; vendor NPU/MPP monitoring; full runtime/platform coverage; wall-clock display |
-
-The matrix records remaining gaps rather than a claim of complete parity. Layout presets (`balanced`, `compute`, `storage`, `minimal`) change presentation; they do not change action permissions.
+rstop targets a local Linux/macOS/Windows TUI. Web services, remote monitoring, remote containers, and cloud exporters are outside scope. Implemented fields, successful builds, and real hardware validation are separate claims.
 
 ## Information layout
 
@@ -65,7 +39,7 @@ The matrix records remaining gaps rather than a claim of complete parity. Layout
 
 Charts share `ui/charts.rs`. Bounded raw history is projected onto fixed half-cell columns using elapsed sampler timestamps: right entry, left cropping, no startup stretching or floating-point repositioning on scroll. `W` selects a time window, `z`/`Z` zoom, and sampling rate is independent of the chosen span. The menu reports actual cached time; retention is capped at 3,600 samples. Wider windows preserve peaks in aligned buckets; NaN and long collection gaps break lines. `All` retains the sample-aligned mode. Throughput scales use 1/2/5 steps without smoothing away raw peaks.
 
-Fast sampling is separate from slow inspection. Connection/DRM ownership shares a bounded FD scan. Extra fields are enabled by selected columns and expensive reads are cached for five seconds. TASKSTATS has a budget/backoff and does not change kernel settings. Helper commands have time/output/process-lifetime bounds. Measured overhead and comparison conditions are in [BENCHMARK.md](BENCHMARK.md).
+Fast sampling is separate from slow inspection. Connection/DRM ownership shares a bounded FD scan. Extra fields are enabled by selected columns and expensive reads are cached for five seconds. TASKSTATS has a budget/backoff and does not change kernel settings. Helper commands have time/output/process-lifetime bounds.
 
 Optional page sources activate on first use and remain active after navigation; hidden charts continue receiving timestamped samples. Host/GPU overview history is continuous from startup. Activated connections update every second; container/service/extra discovery waits five seconds between scans. `--full-sampling`, recording and headless collection enable everything. Linux uses cached procfs descriptors, socket diagnostics and local systemd D-Bus; Unix Docker uses the local Engine socket. Existing collectors/CLI fallbacks remain available when native access fails. NVIDIA capability metadata is cached for five seconds; supported dynamic metrics continue at the sample interval after activation.
 
@@ -93,16 +67,14 @@ Shortcuts are offered only when a target/platform supports them. Live inspection
 
 - Workload purpose hints do not automatically sample middleware graphs/QoS, HTTP request statistics, database internals or model-level throughput. ROS graph/QoS and topic samples are explicit CLI checks; other middleware needs application telemetry/custom probes. Embedded middleware can appear under an arbitrary executable name; Linux loaded-library evidence helps inspection but does not prove active use. ROS graph objects are scoped by the process environment, not attributed to its PID; multiple nodes may share a process, and runtime initialization may override environment defaults. Cross-container/namespace ROS queries are refused. Container process attribution is Linux-only, bounded and cached; unavailable members/connections do not establish absence. RSS sums can double-count shared pages.
 
-- The local parity audit above records the remaining reference-product gaps. A native field or generic probe does not close a missing workflow, configuration option, vendor backend or dedicated view.
+- Configuration gaps include custom core-temperature maps, subtree resource aggregation, per-row CPU histories, persistent disk/sensor/interface rules, selected battery controls, configurable meters, and full theme/preset controls. Generic probes do not replace dedicated vendor backends or specialized counters.
 - Intel PMU, vendor-specific GPU/NPU SDKs, all media engines, sensors, SMART/RAID controllers, and driver combinations are not fully covered. MIG/NVLink/ECC parsing exists but has no acceptance evidence on this host.
 - macOS currently enumerates user launchd; system domains, plist discovery, and associated configuration/load behavior remain incomplete. Windows/macOS service/GPU/disk/process hardware features require native-machine acceptance beyond generic CI.
 - Native CI checks Linux/macOS/Windows; release jobs build all six supported targets. Build/test success establishes compatibility, not hardware feature coverage. Podman, libvirt/LXC, local Kubernetes, Ascend, and optional bpftrace permission paths have not all been exercised.
 
-Local test counts, executable hashes and performance acceptance are recorded in [BENCHMARK.md](BENCHMARK.md#implementation-and-validation). The local benchmark skips live container management when no engine is running. CPU sensor mapping uses a multi-package fixture; I/O priority uses an owned child. Autogroup writes and absent vendor hardware have no physical acceptance claim.
-
 ## Reference projects
 
-The reference audit inspects documented settings, columns, meters, plots, plugin/backend inventories and selected implementations at these pinned revisions. These are behavioral/feature references, not a claim that all upstream tests were executed. None is a declared Cargo dependency. Their licenses remain separate from rstop's Apache-2.0 license; copied/adapted code would require its own provenance and applicable notices/terms.
+The projects below are behavioral and feature references at pinned revisions, covering settings, columns, meters, plots and selected implementations. None is a declared Cargo dependency. Their licenses remain separate from rstop's Apache-2.0 license; copied/adapted code would require its own provenance and applicable notices/terms.
 
 | Project and revision | License at the reviewed revision | Reviewed files and reference scope |
 |---|---|---|
@@ -116,14 +88,3 @@ The reference audit inspects documented settings, columns, meters, plots, plugin
 Additional primary references: [NVML system queries](https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html), [Docker stats cache/PIDs definitions](https://docs.docker.com/reference/cli/docker/container/stats/), [Linux TASKSTATS](https://www.kernel.org/doc/html/latest/accounting/taskstats.html), and [delay accounting](https://www.kernel.org/doc/html/latest/accounting/delay-accounting.html).
 
 Distribution design was compared with [bottom](https://github.com/ClementTsang/bottom#installation), [ripgrep](https://github.com/BurntSushi/ripgrep#installation), [Starship](https://starship.rs/guide/), and [uv](https://docs.astral.sh/uv/getting-started/installation/). rstop deliberately exposes one installer-based path and one executable with subcommands. [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) generates release/install artifacts; [axoupdater](https://github.com/axodotdev/axoupdater) implements the explicitly invoked update command.
-
-## Recorded feature acceptance
-
-The Linux feature-validation run used real NVIDIA/AMD, Docker, and systemd data. PTY checks covered views, GPU panels/fields, columns, keyboard/mouse menus, sorting/filtering, details, management-preview cancellation, resizing, and terminal restoration. Grid tests checked translation of existing geometry at startup/full-window scrolling; projection tests checked compression phase, peaks, and gaps.
-
-Output tests used owned processes/files for append/truncate/replace/delete behavior, byte limits, PID identity, and non-consumption of pipes. PTY checks exercised button edge/middle/gap hit regions and log following/pause/filter/file selection. Process-control tests use owned child processes. The ignored service test creates/restarts/reads/stops only a dedicated transient user service. Packaging/CLI checks are documented in [RELEASING.md](RELEASING.md); passing them does not establish hardware feature acceptance.
-
-
-Network/operations validation on 2026-10-22 includes native owned loopback listener/owner collection, TCP counter delta/reset/cookie parsing, IPv4/IPv6 and macOS/Windows parser fixtures, exact port/PID filters, scoped diagnostic/alert recovery, bounded folder scans, private no-overwrite capture output, helper timeout cleanup, confirmation/read-only/replay gating, offline doctor CLI, and rendering at 60×18 through 160×48. Synthetic capture-helper tests establish lifecycle/file handling, not real capture privileges. macOS/Windows network behavior requires native-machine acceptance; Windows packet capture is not implemented. Performance measurements identify their exact collector revision in [BENCHMARK.md](BENCHMARK.md).
-
-A separately authorized elevated loopback test captured 400 packets from an owned local HTTP listener into a 38,424-byte mode-0600 PCAP and successfully decoded its header preview. The unprivileged permission-denied path removed its empty output. This establishes local Linux tcpdump capture/read behavior; it does not validate other interfaces, Windows capture, encrypted payload inspection, or Wireshark stream analysis.

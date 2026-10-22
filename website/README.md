@@ -16,4 +16,4 @@ python3 website/tools/generate-demo.py --binary target/debug/rstop
 
 Screenshots contain no host telemetry. Page animations illustrate behavior; the site does not collect system metrics. All runtime assets are local. Respect `prefers-reduced-motion`.
 
-The standalone product film and its rendering instructions are in [../promo](../promo/README.md). No video is embedded or deployed with the website.
+The product film is delivered separately. No video is embedded or deployed with the website.

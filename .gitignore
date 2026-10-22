@@ -1,6 +1,13 @@
 /target
 /artifacts
-/benchmarks/benchmark-config/
+/benchmarks/
+/BENCHMARK.md
+/promo/
+/examples/profile.rs
+/scripts/benchmark.py
+/scripts/check_lazy.py
+/scripts/smoke_tui.py
+/tests/fixtures/feature-parity.json
 __pycache__/
 /THIRD-PARTY-LICENSES.html
 /dist
