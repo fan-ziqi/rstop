@@ -104,6 +104,7 @@ try:
    text=press('/persistence\r');checks['gpu_device_filter']='persistence' in text and ('Off' in text or 'On' in text) and 'PROCESSES' in text
    press('\x1b');text=press('S');checks['gpu_summary_key']='GPU LOAD' in text
   if key in ['7','8']:
+   checks['logs_shortcut_'+key]='[F7] Logs' in text
    empty=any(message in text for message in ['No containers','No readable container engines','No services','No readable service manager'])
    if empty:
     checks['empty_workload_'+key]=True
@@ -111,10 +112,13 @@ try:
      skipped[name+key]='No usable local workload exists; no existing daemon or workload was started for testing.'
    else:
     # The live query has a 4s timeout; include the wrapped beginning, middle and end.
-    text=press('\r',4.5)
+    text=press('d',4.5)
     extra=text
     for _ in range(10):extra+=press('\x1b[6~',.1)
     checks['live_detail_'+key]='Live inspection' in extra and ('HostPID' in extra if key=='7' else 'MainPID=' in extra)
+    press('\x1b')
+    text=press('\x1b[18~',1)
+    checks['workload_logs_'+key]=('LOGS' in text or 'JOURNAL' in text) and '[f]' in text
     press('\x1b')
     text=press('m');checks['management_menu_'+key]='Workload tools' in text and 'restart' in text
     # Only open and cancel a mutating plan. Never execute against existing resources.
@@ -168,7 +172,9 @@ try:
  text=press('\x1b[3~');checks['delete_clears_filter']='Filter: Search…' in text
  text=press('frsoXp\x1b[H\x1b[C\x1b[Ct\x1b[C\x1b[3~\r');checks['filter_cursor_edit']='Filter: rstop' in text
  text=press('f\x1b[B');checks['filter_down_commits']='[Enter] Apply' not in text and 'Filter: rstop' in text
- text=press('\r');checks['process_detail']='PROCESS ' in text and 'Command' in text
+ text=press('\r');checks['process_detail']='Selected' in text and 'COMMAND' in text
+ text=press('d');checks['full_process_detail']='PROCESS ' in text and 'Command' in text
+ press('\x1b')
  press('\x1b')
  text=press('o',.8);checks['open_files']='OPEN FILES' in text
  press('\x1b')
@@ -177,13 +183,14 @@ try:
  press('\x1b')
  # Follow only the dedicated child created by this script.
  press('\x1b');press('2');text=press(f'/pid:{writer.pid}\r\x1b[B')
- checks['selection_live_resources']=f'PID {writer.pid}' in text and 'Selected' in text and 'GPU ' in text and 'RAM ' in text
+ checks['selection_stays_in_table']=process_selection_visible() and 'Selected' not in text
+ text=press('\r');checks['selection_live_resources']=f'PID {writer.pid}' in text and 'Selected' in text and 'GPU ' in text and 'RAM ' in text
  row=next(i for i,line in enumerate(screen.display) if 'PID' in line and 'USER' in line)+4
  text=press(f'\x1b[<0;12;{row+1}M\x1b[<0;12;{row+1}m')
  checks['blank_deselects']=f'PID {writer.pid} · Selected' not in text and not process_selection_visible()
  text=pump(1.5);checks['refresh_stays_unselected']=not process_selection_visible()
  text=press('\x1b[20~');checks['unselected_signal_disabled']='Confirm process signal' not in text
- text=press('\x1b[B');checks['keyboard_reselects']=f'PID {writer.pid}' in text and 'Selected' in text
+ text=press('\x1b[B');checks['keyboard_reselects']=process_selection_visible() and 'Selected' not in text
  text=press('\x1b[18~',1)
  checks['process_output']='OUTPUT · PID' in text and 'rstop-output-stdout' in text and 'rstop-output-stderr' in text
  checks['output_follow_default']='LIVE · [f] Pause' in text
@@ -206,8 +213,7 @@ try:
  text=press('\x1bOQ');checks['settings']='PREFERENCES' in text
  text=press('\x1b');checks['settings_return_to_menu']='One terminal. Your whole system.' in text and 'PREFERENCES' not in text
  press('\x1b')
- text=press(' ');checks['pause']='PAUSED' in text
- press(' ')
+ text=press(' \x1b[19~');checks['pause_removed']='PAUSED' not in screen.display[0] and '[F8]' not in text
  text=press('c');checks['theme']='PROCESSES' in text
  # Sampling speed and elapsed chart window are independent keyboard controls.
  text=press('W');checks['window_menu']='Time window' in text and '3m elapsed time' in text
@@ -251,7 +257,7 @@ try:
   screen.resize(lines=height,columns=width)
   os.kill(process.pid,signal.SIGWINCH)
   text=pump(.5);checks[f'resize_{width}x{height}']=process.poll() is None and 'rstop' in text
-  checks[f'actions_{width}x{height}']=all(label in screen.display[-1] for label in ['[F3] Filter','[F4] Sort','[F6] Tools','[F10] Quit'])
+  checks[f'actions_{width}x{height}']=all(label in '\n'.join(screen.display[-2:]) for label in ['[F3] Filter','[F4] Sort','[F5] View','[F6] Tools','[F7] Logs','[Enter] Details','[F10] Quit'])
   text=press('5');checks[f'network_both_{width}x{height}']=all(label in text for label in ['INTERFACES','CONNECTIONS'])
   if '3' in available_keys:
    text=press('3');checks[f'gpu_both_{width}x{height}']=all(label in text for label in ['PROCESSES','DEVICE INFO'])

@@ -38,6 +38,7 @@ impl App {
             ("Sort by CPU", KeyCode::Char('P')),
             ("Sort by RAM", KeyCode::Char('M')),
             ("Inspect process", KeyCode::Enter),
+            ("Full process details", KeyCode::Char('d')),
             ("Output / logs", KeyCode::F(7)),
             ("Choose process columns", KeyCode::Char('C')),
             ("Environment", KeyCode::Char('e')),
@@ -84,6 +85,7 @@ impl App {
             ("Diagnose network".into(), KeyCode::Char('R')),
         ];
         if self.network_section == 0 {
+            items.push(("Full connection details".into(), KeyCode::Char('d')));
             items.push(("Open owning process".into(), KeyCode::Char('p')));
         }
         if self.has_tag_target() {
@@ -98,6 +100,7 @@ impl App {
         if self.has_process_table() {
             return [
                 ("Inspect process", KeyCode::Enter),
+                ("Full process details", KeyCode::Char('d')),
                 ("Output and logs", KeyCode::F(7)),
                 ("Environment", KeyCode::Char('e')),
                 ("Open files", KeyCode::Char('o')),
@@ -116,6 +119,7 @@ impl App {
         ];
         match self.view {
             View::Services | View::Containers => items.extend([
+                ("Full workload details".into(), KeyCode::Char('d')),
                 ("Logs".into(), KeyCode::F(7)),
                 ("Additional details".into(), KeyCode::Char('O')),
                 ("Manage workload".into(), KeyCode::Char('m')),
@@ -244,7 +248,6 @@ impl App {
             ("Zoom out", KeyCode::Char('Z')),
             ("Faster sampling", KeyCode::Char('+')),
             ("Slower sampling", KeyCode::Char('-')),
-            ("Pause / resume", KeyCode::F(8)),
             ("Save preferences", KeyCode::Char('w')),
             ("Cycle theme", KeyCode::Char('c')),
             ("Toggle loopback", KeyCode::Char('i')),
@@ -290,6 +293,23 @@ impl App {
                 ("Focus device information".into(), KeyCode::Char('I')),
                 ("Previous GPU".into(), KeyCode::Char('[')),
                 ("Next GPU".into(), KeyCode::Char(']')),
+            ]);
+        }
+        // The command list must include actions exposed by contextual menus too.
+        // This keeps workload management and view options discoverable here.
+        for (label, key) in self
+            .tools_commands()
+            .into_iter()
+            .chain(self.display_menu().items)
+        {
+            if key != KeyCode::Null && !items.iter().any(|(_, existing)| *existing == key) {
+                items.push((label, key));
+            }
+        }
+        if self.replay {
+            items.extend([
+                ("Replay backward ten samples".into(), KeyCode::Char(',')),
+                ("Replay forward ten samples".into(), KeyCode::Char('.')),
             ]);
         }
         for view in self.views() {

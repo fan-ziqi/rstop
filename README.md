@@ -100,10 +100,11 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `F3`, `f`, `/` | Edit the focused table's inline filter |
 | `F4`, `s` | Sort chooser, including reverse order; `P`/`M` sort by CPU/RAM |
 | `F5` | View, panel focus, chart window, zoom and display options |
-| `Enter`, `F6` | Details; contextual tools |
+| `Enter`, `d`, `F6` | Open detail pane; full details; contextual tools |
 | `F7`, `m`, `l` | Process output/workload logs; object tools; logs |
-| `F8`, `Space` | Pause; `,`/`.` seek during replay |
+| `,`, `.` | Seek backward/forward during replay |
 | `W`, `z/Z`, `+/-` | Chart time window; zoom; faster/slower sampling |
+| `F1`, `:` | Help; all commands |
 | `F2`, `c`, `w` | Settings; theme; save configuration |
 | `C`, `Shift+←/→` | Process columns; move the visible column window |
 | `t`, `Ctrl+←/→` | Process tree; collapse/expand |
@@ -115,7 +116,7 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 
 Click or scroll over a table to focus it. Network and GPU keep both tables on one page, with independent filters, sorting and scrolling. Headers sort; right-click opens tools; double-click opens details. Inactive buttons keep the surrounding background, the current page has an accent outline, and filled highlights identify selected rows.
 
-Process selection starts empty. Click a row or press ↑/↓ to select; click blank space or press Esc to clear it. Wheel scrolling moves the viewport without changing the PID. Selection holds row order while values update; explicit sorting applies the new order. The detail pane shows CPU/RAM, attributed GPU/VRAM, I/O and histories starting at selection time. Exit, PID reuse or filtering clears selection. Scroll the pane with its mouse wheel or `Alt+↑/↓`, `Alt+PgUp/PgDn`, `Alt+Home/End`.
+Process selection starts empty. Click a row or press ↑/↓ to select; press Enter or double-click to open its detail pane. This also applies to connections, services and containers. Esc closes the pane before clearing selection; selecting another row closes it. Wheel scrolling moves the process viewport without changing the PID. Selection holds row order while values update; explicit sorting applies the new order. The detail pane shows CPU/RAM, attributed GPU/VRAM, I/O and histories starting at selection time. Exit, PID reuse or filtering clears selection. Scroll the pane with its mouse wheel or `Alt+↑/↓`, `Alt+PgUp/PgDn`, `Alt+Home/End`. Use `d` for full details, `F6` for tools, or `:` for all commands. The bottom action bar wraps on narrow terminals to keep resource actions visible.
 
 Filters update in place as you type. Enter/↓ apply; Esc restores the previous query. Editors support cursor movement, Home/End, deletion and `Ctrl+A/E/U/K/W`. Examples:
 
@@ -129,13 +130,13 @@ port:443 !proto:udp
 
 Spaces mean AND; space-delimited ` | ` means OR. Quotes, negation and numeric comparisons are supported. `mem`/`vram` use MiB; unknown values do not match zero.
 
-`W` selects 15 seconds to one hour, subject to the 3,600-sample retention limit. Sampling speed is independent of the window. Charts enter from the right, leave on the left, preserve peaks in aligned buckets and break at missing observations or long collection gaps. Startup leaves uncollected time blank; the menu reports the actual retained duration.
+`W` selects 15 seconds to one hour, subject to the 3,600-sample retention limit. Sampling speed is independent of the window. Chart titles retain units when compact layouts omit axes; memory utilization uses `%`, capacity uses `B`, and rates distinguish `B/s` from `bit/s`. Charts enter from the right, leave on the left, preserve peaks in aligned buckets and break at missing observations or long collection gaps. Startup leaves uncollected time blank; the menu reports the actual retained duration.
 
 ## Inspect and manage
 
 `F6` offers tools relevant to the current resource and installed utilities. Actions preview the complete command and fixed target before `y` confirmation. Process identity includes PID/start time; Linux signals prefer pidfd. Privileges are not elevated automatically. `--read-only` and replay disable state changes; replay also disables live inspection.
 
-Select a process and press `F7` for readable stdout/stderr files, container/service logs or PID journal entries. Use `p` to select a log file. Following refreshes every three seconds; `f` resumes, `/` searches, and scrolling pauses it. File tails are bounded to 1 MiB and handle truncation/replacement. Pipes/terminals are not consumed, and unsaved terminal output cannot be recovered. [Platform-specific output support](COVERAGE.md#interaction-and-operations).
+Select a process, service or container and press `F7` for readable stdout/stderr files, workload logs or PID journal entries. Use `p` to select a log file. Following refreshes every three seconds; `f` resumes, `/` searches, and scrolling pauses it. File tails are bounded to 1 MiB and handle truncation/replacement. Pipes/terminals are not consumed, and unsaved terminal output cannot be recovered. [Platform-specific output support](COVERAGE.md#interaction-and-operations).
 
 Network tools include explicit DNS/TCP/TLS/HTTP checks, routes/DNS inspection and Linux/macOS `tcpdump` capture. Capture previews its interface/filter/output and is limited by duration/packet count. New PCAP files are private and existing files are never overwritten; captured bytes can contain private data. TCP rates use native Linux socket diagnostics with a procfs/`ss` fallback and need two observations. macOS/Windows provide connection listings without byte rates.
 

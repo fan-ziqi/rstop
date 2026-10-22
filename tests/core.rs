@@ -89,7 +89,12 @@ fn tabs_use_visible_cells_and_compact_chrome_at_every_width() {
                 last = rect.right() + 1;
             }
             assert_eq!(app.filter_rect.height, u16::from(app.can_filter()));
-            assert!(app.footer_actions.iter().all(|(rect, _)| rect.y == 31));
+            assert!(
+                app.footer_actions
+                    .iter()
+                    .all(|(rect, _)| rect.y >= 30 && rect.bottom() <= 32)
+            );
+            assert_eq!(app.footer_actions.last().unwrap().0.bottom(), 32);
         }
         app.set_view(View::Processes);
         terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
@@ -291,7 +296,7 @@ fn malformed_parent_cycles_terminate_without_duplicate_rows() {
 }
 
 #[test]
-fn history_is_bounded_and_pause_does_not_mutate_display() {
+fn history_is_bounded_and_accepts_each_new_sample() {
     let mut app = App::new(Config {
         history: 30,
         ..Config::default()
@@ -302,9 +307,11 @@ fn history_is_bounded_and_pause_does_not_mutate_display() {
         app.ingest(snapshot);
     }
     assert_eq!(app.history.cpu.len(), 30);
-    app.paused = true;
-    app.ingest(Snapshot::default());
-    assert_eq!(app.snapshot.timestamp, 99);
+    app.ingest(Snapshot {
+        timestamp: 100,
+        ..Default::default()
+    });
+    assert_eq!(app.snapshot.timestamp, 100);
     assert_eq!(app.history.cpu.len(), 30);
 }
 
@@ -491,7 +498,6 @@ fn network_top_is_a_session_peak_of_simultaneous_traffic_in_each_scope() {
     app.config.show_loopback = true;
     app.ingest(snapshot);
     assert_eq!(app.history.network_peaks[1].rx, 1000.);
-    app.paused = true;
     app.ingest(Snapshot {
         networks: vec![Network {
             name: "eth0".into(),
@@ -500,7 +506,7 @@ fn network_top_is_a_session_peak_of_simultaneous_traffic_in_each_scope() {
         }],
         ..Default::default()
     });
-    assert_eq!(app.history.network_peaks[0].rx, 100.);
+    assert_eq!(app.history.network_peaks[0].rx, 1e9);
 }
 
 #[test]

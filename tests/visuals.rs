@@ -190,10 +190,10 @@ fn overview_preserves_resource_metrics_and_gives_charts_most_of_the_screen() {
             "CPU history",
             "Temp 98.5°C",
             "AVG 1m 1.25 · 5m 2.50 · 15m 3.75",
-            "Used 4.0 GiB",
-            "Available 4.0 GiB",
-            "Cached 3.0 GiB",
-            "Free 1.0 GiB",
+            "Used (%) 4.0 GiB",
+            "Available (%) 4.0 GiB",
+            "Cached (%) 3.0 GiB",
+            "Free (%) 1.0 GiB",
             "Swap 1.0 GiB / 2.0 GiB",
             "Test GPU",
             "4.0 GiB / 16.0 GiB",
@@ -211,8 +211,8 @@ fn overview_preserves_resource_metrics_and_gives_charts_most_of_the_screen() {
             "5.0 GiB",
             "↓ Top 128.0 KiB/s",
             "↑ Top 64.0 KiB/s",
-            "Download history",
-            "Upload history",
+            "Download (B/s)",
+            "Upload (B/s)",
         ] {
             assert!(
                 text.contains(metric),
@@ -481,7 +481,7 @@ fn overview_uses_cpu_sensors_and_package_power_without_subdomain_double_counting
         text.contains("Temp —"),
         "Do not label disk/GPU temperature as CPU: {text}"
     );
-    assert!(text.contains("Free —") && text.contains("Cached —"));
+    assert!(text.contains("Free (%) —") && text.contains("Cached (%) —"));
 }
 
 #[test]

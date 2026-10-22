@@ -377,6 +377,7 @@ fn trailing_badges_are_quiet_bounded_and_all_selection_content_can_be_read_after
             app.ingest(fixture());
             app.set_view(view);
             app.remember_selection();
+            assert!(app.open_selection());
             let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
             terminal.draw(|f| rstop::ui::draw(f, &mut app)).unwrap();
             assert!(app.process_detail_rect.height > 0, "{view:?} {w}x{h}");
@@ -459,6 +460,7 @@ fn selected_process_text_and_charts_share_the_right_pane_equally() {
         app.ingest(fixture());
         app.set_view(View::Processes);
         app.remember_selection();
+        assert!(app.open_selection());
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal.draw(|f| rstop::ui::draw(f, &mut app)).unwrap();
         let rect = app.process_detail_rect;

@@ -28,8 +28,8 @@
   },
   "summary": {
     "btop": {
-      "partial": 38,
-      "missing": 20,
+      "partial": 37,
+      "missing": 21,
       "native": 23
     },
     "htop": {
@@ -4147,9 +4147,9 @@
       "name": "keep_dead_proc_usage",
       "source": "src/btop_config.cpp",
       "line": 155,
-      "status": "partial",
-      "rstop_entry": "F8 Pause",
-      "assessment": "A whole paused snapshot survives exit; exited live selections are not retained as tombstones.",
+      "status": "missing",
+      "rstop_entry": "",
+      "assessment": "Exited live selections are cleared rather than retained as tombstones.",
       "upstream_url": "https://github.com/aristocratos/btop/blob/89fcdf4094e89f8ac215ee6c3ee74aeffb618e86/src/btop_config.cpp#L155"
     },
     {

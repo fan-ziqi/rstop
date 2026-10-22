@@ -77,12 +77,13 @@ pub(super) fn storage_view(frame: &mut Frame, area: Rect, app: &mut App, p: Pale
         chart(
             frame,
             inner,
-            "read / write · bytes per second",
+            "read / write",
             &[
                 ("read", &app.history.disk_read, p.mint),
                 ("write", &app.history.disk_write, p.blue),
             ],
             max,
+            "B/s",
             app.plot_window(),
             p,
         );

@@ -572,6 +572,7 @@ fn workload_history(
                 metric,
                 &[("sampled", values, color)],
                 max,
+                if metric.ends_with("(%)") { "%" } else { "B" },
                 app.plot_window(),
                 p,
             );

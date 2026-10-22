@@ -1,10 +1,56 @@
 //! Shared, sample-aligned terminal charts for every telemetry page.
-use super::{Palette, block, optional, text};
+use super::{Palette, block, text};
 use crate::{model::bytes, plot::Window};
 use ratatui::{prelude::*, widgets::*};
 use std::collections::VecDeque;
 
 pub(super) type Series<'a> = (&'a str, &'a VecDeque<f64>, Color);
+
+pub(super) fn unit_label(unit: &str) -> &str {
+    match unit {
+        "B/s SI" => "B/s",
+        "ibit/s" => "bit/s",
+        _ => unit.trim(),
+    }
+}
+
+/// Put the graph's unit before optional details, so compact titles retain it.
+pub(super) fn title_with_unit(title: &str, unit: &str) -> String {
+    let unit = unit_label(unit);
+    let (name, details) = title.split_once(" · ").unwrap_or((title, ""));
+    let name = if unit.is_empty() || name.contains(&format!("({unit})")) {
+        name.to_owned()
+    } else {
+        format!("{name} ({unit})")
+    };
+    if details.is_empty() {
+        name
+    } else {
+        format!("{name} · {details}")
+    }
+}
+
+fn value_label(value: f64, unit: &str) -> String {
+    if !value.is_finite() {
+        return "—".into();
+    }
+    match unit {
+        "B" => bytes(value),
+        "B/s" => format!("{}/s", bytes(value)),
+        "bit/s" | "ibit/s" | "B/s SI" => {
+            let bits = unit != "B/s SI";
+            crate::config::Display {
+                network_bits: bits,
+                network_binary: unit == "ibit/s",
+                ..Default::default()
+            }
+            .rate(value / if bits { 8. } else { 1. })
+        }
+        "%" | "°C" | "°F" => format!("{value:.0}{unit}"),
+        "" => format!("{value:.0}"),
+        _ => format!("{value:.0} {}", unit_label(unit)),
+    }
+}
 
 pub(super) struct Trend<'a> {
     pub series: &'a [Series<'a>],
@@ -21,30 +67,19 @@ impl Trend<'_> {
     }
     pub fn render_scaled(&self, frame: &mut Frame, mut area: Rect, logarithmic: bool) {
         if self.axes && area.height >= 4 && area.width >= 14 {
-            let label = |v: f64| {
-                if self.unit == "B" {
-                    bytes(v)
-                } else if self.unit == "B/s" {
-                    format!("{}/s", bytes(v))
-                } else if ["bit/s", "ibit/s", "B/s SI"].contains(&self.unit) {
-                    let bits = self.unit != "B/s SI";
-                    crate::config::Display {
-                        network_bits: bits,
-                        network_binary: self.unit == "ibit/s",
-                        ..Default::default()
-                    }
-                    .rate(v / if bits { 8. } else { 1. })
-                } else {
-                    format!("{v:.0}{}", self.unit)
-                }
-            };
+            let label = |v| value_label(v, self.unit);
             let midpoint = if logarithmic {
                 (self.max + 1.).sqrt() - 1.
             } else {
                 self.max / 2.
             };
             let labels = [label(self.max), label(midpoint), label(0.)];
-            let left = labels.iter().map(String::len).max().unwrap_or(0) as u16 + 1;
+            let left = labels
+                .iter()
+                .map(|label| Line::raw(label.as_str()).width())
+                .max()
+                .unwrap_or(0) as u16
+                + 1;
             for (value, y) in
                 labels
                     .iter()
@@ -200,13 +235,17 @@ pub(super) fn chart(
     title: &str,
     series: &[Series<'_>],
     max: f64,
+    unit: &str,
     window: Window,
     p: Palette,
 ) {
     if area.height < 2 {
         return;
     }
-    let mut legend = vec![Span::styled(title.to_string(), Style::new().fg(p.muted))];
+    let mut legend = vec![Span::styled(
+        title_with_unit(title, unit),
+        Style::new().fg(p.muted),
+    )];
     if series.len() > 1 {
         for (name, _, color) in series {
             legend.push(Span::styled(format!("  ━ {name}"), Style::new().fg(*color)));
@@ -221,8 +260,8 @@ pub(super) fn chart(
         max,
         window,
         palette: p,
-        axes: false,
-        unit: "",
+        axes: true,
+        unit,
     }
     .render(
         frame,
@@ -241,7 +280,7 @@ pub(super) fn gpu_plot(
     window: Window,
     p: Palette,
 ) {
-    let b = block(format!(" {title} "), p, p.blue);
+    let b = block(format!(" {} ", title_with_unit(title, unit)), p, p.blue);
     let mut inner = b.inner(area);
     frame.render_widget(b, area);
     if !series
@@ -259,17 +298,10 @@ pub(super) fn gpu_plot(
                     Span::styled(
                         format!(
                             "{name} {}  ",
-                            optional(
-                                values
-                                    .back()
-                                    .filter(|v| v.is_finite())
-                                    .map(|v| if unit == "B/s" {
-                                        format!("{}/s", bytes(*v))
-                                    } else {
-                                        format!("{v:.0}{unit}")
-                                    }),
-                                ""
-                            )
+                            values
+                                .back()
+                                .map(|v| value_label(*v, unit))
+                                .unwrap_or_else(|| "—".into())
                         ),
                         Style::new().fg(*color),
                     )
@@ -297,6 +329,88 @@ pub(super) fn gpu_plot(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_plots_keep_units_when_axes_do_not_fit_and_legends_match_the_scale() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let values = VecDeque::from([1., 2., 3.]);
+        for height in [3, 8] {
+            for (unit, expected) in [
+                ("%", "(%)"),
+                ("B", "(B)"),
+                ("B/s", "(B/s)"),
+                ("B/s SI", "(B/s)"),
+                ("bit/s", "(bit/s)"),
+                ("ibit/s", "(bit/s)"),
+                ("W", "(W)"),
+                ("°C", "(°C)"),
+                ("°F", "(°F)"),
+                (" K", "(K)"),
+                ("MHz", "(MHz)"),
+                ("ms", "(ms)"),
+            ] {
+                let mut terminal = Terminal::new(TestBackend::new(80, height)).unwrap();
+                for framed in [false, true] {
+                    terminal
+                        .draw(|frame| {
+                            let series = [
+                                ("read", &values, Color::Green),
+                                ("write", &values, Color::Blue),
+                            ];
+                            if framed {
+                                gpu_plot(
+                                    frame,
+                                    frame.area(),
+                                    "Metric · current value",
+                                    &series,
+                                    100.,
+                                    unit,
+                                    Window {
+                                        samples: 10,
+                                        end: 3,
+                                        time: None,
+                                    },
+                                    super::super::palette("midnight"),
+                                );
+                            } else {
+                                chart(
+                                    frame,
+                                    frame.area(),
+                                    "History",
+                                    &series,
+                                    100.,
+                                    unit,
+                                    Window {
+                                        samples: 10,
+                                        end: 3,
+                                        time: None,
+                                    },
+                                    super::super::palette("midnight"),
+                                );
+                            }
+                        })
+                        .unwrap();
+                    let text: String = terminal
+                        .backend()
+                        .buffer()
+                        .content
+                        .iter()
+                        .map(|c| c.symbol())
+                        .collect();
+                    assert!(
+                        text.contains(expected),
+                        "{unit}, {height} rows, framed={framed}: {text}"
+                    );
+                }
+            }
+        }
+        assert_eq!(value_label(1024., "B"), "1.0 KiB");
+        assert_eq!(value_label(1024., "B/s"), "1.0 KiB/s");
+        assert_eq!(value_label(1000., "B/s SI"), "1.0 kB/s");
+        assert_eq!(value_label(8000., "bit/s"), "8.0 Kbit/s");
+        assert_eq!(value_label(8192., "ibit/s"), "8.0 Kibit/s");
+        assert_eq!(value_label(f64::NAN, "%"), "—");
+    }
 
     fn pixels(values: &VecDeque<f64>, end: u64) -> Vec<Vec<bool>> {
         let area = Rect::new(0, 0, 32, 8);

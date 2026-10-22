@@ -74,7 +74,6 @@ impl Input<'_> {
             KeyCode::F(3) => Some(KeyCode::Char('/')),
             KeyCode::F(4) => Some(KeyCode::Char('s')),
             KeyCode::F(7) => Some(KeyCode::Char('l')),
-            KeyCode::F(8) => Some(KeyCode::Char(' ')),
             _ => None,
         };
         if let Some(code) = alias {
@@ -415,7 +414,6 @@ impl Input<'_> {
                 );
                 app.history = Default::default();
                 app.events = Default::default();
-                app.paused = false;
             }
             KeyCode::Down | KeyCode::Char('j') => app.move_selection(1),
             KeyCode::Up | KeyCode::Char('k') => app.move_selection(-1),
@@ -436,6 +434,7 @@ impl Input<'_> {
                 app.table_offset = 0;
                 app.clear_active_selection();
             }
+            KeyCode::Esc if app.selection_open => app.close_selection(),
             KeyCode::Esc if app.has_row_selection() => {
                 app.clear_active_selection();
             }
@@ -580,7 +579,6 @@ impl Input<'_> {
                 app.own_only = !app.own_only;
                 app.resort_processes();
             }
-            KeyCode::Char(' ') => app.paused = !app.paused,
             KeyCode::Char('c') => {
                 app.config.cycle_theme(true);
             }
@@ -742,6 +740,9 @@ impl Input<'_> {
                 app.focus_panel(if app.gpu_section == 2 { 0 } else { 2 })
             }
             KeyCode::Enter | KeyCode::Char('d') => {
+                if key.code == KeyCode::Enter && app.open_selection() {
+                    return true;
+                }
                 inspect(app);
                 load_resource_detail(app, detail_tx.clone());
             }
@@ -1078,7 +1079,7 @@ mod tests {
             assert!(app.capture.is_none());
             app.set_view(View::Processes);
             press(input, app, KeyCode::F(6));
-            assert!(app.ui_menu.as_ref().unwrap().items.len() <= 8);
+            assert!(app.ui_menu.as_ref().unwrap().items.len() <= 9);
             press(input, app, KeyCode::Char('m'));
             assert!(
                 app.ui_menu
@@ -1298,6 +1299,7 @@ mod tests {
                 ..Default::default()
             });
             app.remember_selection();
+            press(input, app, KeyCode::Enter);
             let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
             terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
             let identity = app.selected_process;
@@ -1359,6 +1361,8 @@ mod tests {
             assert_eq!(app.selected_process, Some((42, 10)));
             assert!(input.queued_key.is_none());
             assert!(app.ui_menu.is_none());
+            assert!(!app.selection_open);
+            press(input, app, KeyCode::Enter);
             terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
             let hit = app
                 .label_targets
@@ -1505,6 +1509,133 @@ mod tests {
             assert!(app.selected_process().is_none());
         });
     }
+    #[test]
+    fn selecting_rows_requires_enter_to_open_details_and_escape_preserves_selection() {
+        use ratatui::{Terminal, backend::TestBackend};
+        use rstop::{
+            connections::Connection,
+            model::{Container, GpuProcess},
+        };
+        for view in [
+            View::Processes,
+            View::Gpu,
+            View::Network,
+            View::Services,
+            View::Containers,
+        ] {
+            run(|input, app| {
+                app.snapshot.processes[0].gpu_ids = vec![0];
+                app.snapshot.gpus.push(Gpu {
+                    processes: vec![GpuProcess {
+                        pid: 42,
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                });
+                for i in 0..2 {
+                    app.snapshot.inventory.services.push(Service {
+                        name: format!("worker-{i}.service"),
+                        scope: "user".into(),
+                        ..Default::default()
+                    });
+                    app.snapshot.inventory.containers.push(Container {
+                        id: format!("container-{i}"),
+                        runtime: "docker".into(),
+                        ..Default::default()
+                    });
+                    app.snapshot.connections.connections.push(Connection {
+                        id: format!("connection-{i}"),
+                        ..Default::default()
+                    });
+                }
+                app.set_view(view);
+                let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                press(input, app, KeyCode::Down);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                assert!(app.has_row_selection(), "{view:?}");
+                assert!(
+                    !app.selection_open && app.process_detail_rect.is_empty(),
+                    "{view:?}"
+                );
+                let selected = app.selected;
+                press(input, app, KeyCode::Enter);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                assert!(
+                    app.selection_open && !app.process_detail_rect.is_empty(),
+                    "{view:?}"
+                );
+                assert!(app.detail.is_none(), "{view:?}: pane must not open a popup");
+                let snapshot = app.snapshot.clone();
+                app.ingest(snapshot);
+                assert!(app.selection_open, "{view:?}: refresh closed details");
+                press(input, app, KeyCode::Esc);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                assert!(!app.selection_open && app.process_detail_rect.is_empty());
+                assert!(app.has_row_selection());
+                assert_eq!(app.selected, selected);
+                assert!(app.main_menu.is_none());
+                press(input, app, KeyCode::Enter);
+                // Refreshing/sorting the same identity preserves the explicit pane.
+                app.remember_selection();
+                assert!(app.selection_open);
+                if matches!(view, View::Network | View::Services | View::Containers) {
+                    press(input, app, KeyCode::Up);
+                    assert!(!app.selection_open, "{view:?}: a new row opened details");
+                    press(input, app, KeyCode::Enter);
+                }
+                press(input, app, KeyCode::F(3));
+                assert!(!app.selection_open);
+                press(input, app, KeyCode::Esc);
+                assert!(!app.selection_open);
+            });
+        }
+    }
+
+    #[test]
+    fn single_click_selects_and_double_click_activates_the_detail_pane() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+        run(|input, app| {
+            let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
+            terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+            let click = MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: app.table_rect.x + 2,
+                row: app.table_rect.y,
+                modifiers: KeyModifiers::NONE,
+            };
+            input.mouse(app, click);
+            terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+            assert!(app.has_row_selection());
+            assert!(!app.selection_open && app.process_detail_rect.is_empty());
+            input.mouse(app, click);
+            let key = input.queued_key.take().unwrap();
+            assert_eq!(key.code, KeyCode::Enter);
+            input.key(app, key);
+            terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+            assert!(app.selection_open && !app.process_detail_rect.is_empty());
+            assert!(app.detail.is_none());
+        });
+    }
+
+    #[test]
+    fn retired_pause_keys_do_not_stop_live_or_replay_samples() {
+        for replay in [false, true] {
+            run(|input, app| {
+                app.replay = replay;
+                for (tick, key) in [KeyCode::F(8), KeyCode::Char(' ')].into_iter().enumerate() {
+                    press(input, app, key);
+                    let mut sample = app.snapshot.clone();
+                    sample.timestamp = 100 + tick as u64;
+                    app.ingest(sample);
+                    assert_eq!(app.snapshot.timestamp, 100 + tick as u64);
+                    assert!(app.detail.is_none() && app.ui_menu.is_none());
+                }
+            });
+        }
+    }
+
     #[test]
     fn mouse_selection_scroll_and_empty_rows_do_not_choose_another_process() {
         use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -1773,7 +1904,7 @@ mod tests {
                         "{case}: background selection changed"
                     );
                     assert_eq!(app.view, View::Processes);
-                    assert!(!app.paused && app.filter.is_empty());
+                    assert!(app.filter.is_empty());
                     assert!(input.queued_key.is_none() && input.last_click.is_none());
                 });
             }
@@ -1845,7 +1976,6 @@ mod tests {
             assert_eq!(app.selected_process, selection);
             assert_eq!(app.filter, "worker");
             assert_eq!(app.view, View::Processes);
-            assert!(!app.paused);
             press(input, app, KeyCode::F(1));
             assert!(app.help);
             press(input, app, KeyCode::Esc);

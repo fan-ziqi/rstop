@@ -254,14 +254,12 @@ fn main_menu_and_project_links_fit_small_terminals_and_accessible_modes() {
 #[test]
 fn menu_is_static_and_refreshes_its_backdrop_after_theme_or_size_changes() {
     let mut app = App::new(Config::default());
-    app.paused = true;
     app.main_menu = Some(Default::default());
     let mut terminal = Terminal::new(TestBackend::new(140, 44)).unwrap();
     terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
     let first = terminal.backend().buffer().clone();
     terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
     assert_eq!(&first, terminal.backend().buffer());
-    assert!(app.paused);
     app.config.theme = "nord".into();
     terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
     assert_eq!(app.main_menu.as_ref().unwrap().backdrop_theme, "nord");
@@ -289,6 +287,51 @@ fn menu_is_static_and_refreshes_its_backdrop_after_theme_or_size_changes() {
 }
 
 #[test]
+fn all_commands_include_contextual_tools_and_view_shortcuts_for_each_panel() {
+    use crossterm::event::KeyCode as K;
+    let mut app = App::new(Config::default());
+    for view in app.views() {
+        app.set_view(view);
+        let panels: &[usize] = match view {
+            View::Network => &[0, 1],
+            View::Gpu => &[0, 2],
+            _ => &[0],
+        };
+        for &panel in panels {
+            app.focus_panel(panel);
+            let commands = app.commands();
+            for (label, key) in app
+                .tools_commands()
+                .into_iter()
+                .chain(app.display_menu().items)
+            {
+                if key == K::Null {
+                    continue;
+                }
+                assert!(
+                    commands.iter().any(|(_, k)| *k == key),
+                    "{view:?}/{panel}: {label}"
+                );
+            }
+            assert!(
+                !commands
+                    .iter()
+                    .any(|(_, k)| *k == K::F(8) || *k == K::Char(' '))
+            );
+            if matches!(view, View::Services | View::Containers) {
+                for key in [K::Char('m'), K::Char('d'), K::F(7)] {
+                    assert!(commands.iter().any(|(_, k)| *k == key));
+                }
+            }
+        }
+    }
+    app.replay = true;
+    for key in [K::Char(','), K::Char('.')] {
+        assert!(app.commands().iter().any(|(_, k)| *k == key));
+    }
+}
+
+#[test]
 fn common_action_bar_keeps_keycaps_and_primary_actions_visible_at_every_supported_size() {
     use rstop::model::Gpu;
     for (width, height) in [(60, 18), (80, 24), (160, 48)] {
@@ -310,8 +353,15 @@ fn common_action_bar_keeps_keycaps_and_primary_actions_visible_at_every_supporte
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
             let buffer = terminal.backend().buffer();
-            let footer: String = (0..width)
-                .map(|x| buffer[(x, height - 1)].symbol())
+            let top = app
+                .footer_actions
+                .iter()
+                .map(|(rect, _)| rect.y)
+                .min()
+                .unwrap();
+            let footer: String = (top..height)
+                .flat_map(|y| (0..width).map(move |x| (x, y)))
+                .map(|point| buffer[point].symbol())
                 .collect();
             for label in ["[Esc]", "[F6] Tools", "[F10] Quit"] {
                 assert!(
@@ -327,16 +377,22 @@ fn common_action_bar_keeps_keycaps_and_primary_actions_visible_at_every_supporte
             {
                 assert!(footer.contains("[F4] Sort"));
             }
-            if width >= 80 {
-                assert!(footer.contains("[F5] View"));
+            assert!(footer.contains("[F5] View"));
+            assert!(footer.contains("[Enter] Details"));
+            if app.has_process_table() || matches!(view, View::Services | View::Containers) {
+                assert!(
+                    footer.contains("[F7] Logs"),
+                    "{width}x{height} {view:?}: {footer}"
+                );
             }
-            if width >= 160 {
-                assert!(footer.contains("[Enter] Details"));
-            }
-            let mut right = 0;
+            assert!(!footer.contains("Pause") && !footer.contains("[F8]"));
+            let mut previous = None;
             for (rect, key) in &app.footer_actions {
-                assert!(rect.x >= right && rect.right() <= width);
-                right = rect.right();
+                assert!(rect.right() <= width && rect.bottom() <= height);
+                if let Some((y, right)) = previous {
+                    assert!(rect.y > y || rect.x >= right);
+                }
+                previous = Some((rect.y, rect.right()));
                 let expected = format!("[{}]", rstop::app::commands::key_name(*key));
                 let actual: String = (rect.x..rect.right())
                     .map(|x| buffer[(x, rect.y)].symbol())

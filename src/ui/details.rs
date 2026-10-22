@@ -102,6 +102,9 @@ pub(super) fn history_view(frame: &mut Frame, area: Rect, app: &mut App, p: Pale
             "sample history",
             &[("value", history, p.mint)],
             max,
+            key.rsplit_once(" (")
+                .map(|(_, unit)| unit.trim_end_matches(')'))
+                .unwrap_or(""),
             app.plot_window(),
             p,
         );

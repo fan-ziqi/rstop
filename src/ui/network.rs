@@ -83,7 +83,7 @@ pub(super) fn dashboard(frame: &mut Frame, area: Rect, app: &mut App, p: Palette
     app.set_network_section(0);
     let area = if area.width >= 120 || area.height >= 18 {
         super::selection::with_pane(frame, area, app, p)
-    } else if app.selected_connection.is_some() {
+    } else if app.selection_open && app.selected_connection.is_some() {
         let panes = Layout::vertical([Constraint::Min(9), Constraint::Length(4)]).split(area);
         super::selection::draw(frame, panes[1], app, p);
         panes[0]

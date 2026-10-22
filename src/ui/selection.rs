@@ -239,6 +239,9 @@ pub(super) fn split(area: Rect) -> (Rect, Rect) {
 }
 
 pub(super) fn draw(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
+    if !app.selection_open {
+        return;
+    }
     let Some(content) = content(app, p) else {
         return;
     };
@@ -247,7 +250,7 @@ pub(super) fn draw(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
 
 fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut content: Content) {
     let b = block(format!(" {} · Selected ", content.title), p, p.blue).title_bottom(Line::styled(
-        " Wheel / Alt+↑↓ · Esc ",
+        " Wheel / Alt+↑↓ · [d] Full details · [Esc] Back ",
         Style::new().fg(p.muted),
     ));
     let inner = b.inner(area);
@@ -308,7 +311,8 @@ fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut co
 }
 
 pub(super) fn with_pane(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) -> Rect {
-    if area.height >= 9
+    if app.selection_open
+        && area.height >= 9
         && let Some(content) = content(app, p)
     {
         let (table, detail) = split(area);

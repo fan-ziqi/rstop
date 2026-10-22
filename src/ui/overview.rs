@@ -528,7 +528,10 @@ fn plot(frame: &mut Frame, area: Rect, title: &str, trend: Trend<'_>) {
     text(
         frame,
         Rect::new(area.x, area.y, area.width, 1),
-        Line::styled(title.to_owned(), Style::new().fg(trend.palette.muted)),
+        Line::styled(
+            super::charts::title_with_unit(title, trend.unit),
+            Style::new().fg(trend.palette.muted),
+        ),
         trend.palette,
     );
     trend.render(
@@ -569,6 +572,7 @@ fn history_plots(
                     .map(|(_, values, _)| scale(values))
                     .fold(1., f64::max)
             }),
+            unit,
             app.plot_window(),
             p,
         );
@@ -659,12 +663,12 @@ pub(super) fn memory(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
         let suffix = ratio
             .map(|v| format!("{v:5.1}%"))
             .unwrap_or_else(|| "—".into());
-        let label = format!("{name} {amount}");
+        let label = format!("{name} (%) {amount}");
         let gap = (row.width as usize).saturating_sub(Line::raw(&label).width() + suffix.len());
         let label = if gap > 0 {
             format!("{label}{}{suffix}", " ".repeat(gap))
         } else {
-            format!("{name} {amount}")
+            format!("{name} (%) {amount}")
         };
         text(
             frame,
@@ -1131,7 +1135,8 @@ pub(super) fn network_card(frame: &mut Frame, area: Rect, app: &App, p: Palette)
                 Rect::new(row.x, row.y + 3, row.width, 1),
                 Line::styled(
                     format!(
-                        "{name} history{}",
+                        "{name} ({}){}",
+                        if display.network_bits { "bit/s" } else { "B/s" },
                         if display.network_logarithmic {
                             " · log"
                         } else {

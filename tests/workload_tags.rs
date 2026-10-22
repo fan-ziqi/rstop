@@ -282,6 +282,7 @@ fn inline_badges_and_label_tools_remain_available_on_existing_pages_at_all_sizes
             app.set_view(view);
             app.filter = query.into();
             app.remember_selection();
+            assert!(app.open_selection());
             terminal.draw(|f| rstop::ui::draw(f, &mut app)).unwrap();
             let text = terminal
                 .backend()

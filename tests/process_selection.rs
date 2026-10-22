@@ -185,6 +185,7 @@ fn selected_process_pane_keeps_the_inline_filter_readable() {
     app.filter = "task".into();
     app.sort = Sort::Read;
     app.remember_selection();
+    assert!(app.open_selection());
     let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
     terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
     let text = terminal
@@ -229,6 +230,9 @@ fn full_gpu_summary_and_live_process_focus_render_on_small_and_wide_terminals() 
                 }
             }
             app.move_selection(1);
+            if app.has_process_table() {
+                assert!(app.open_selection());
+            }
             terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
             let text = terminal
                 .backend()

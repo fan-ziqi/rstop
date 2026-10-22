@@ -172,6 +172,7 @@ pub struct App {
     pub process_history: crate::history::ProcessHistory,
     pub process_detail_rect: ratatui::layout::Rect,
     pub selected_workload: Option<(View, String, String)>,
+    pub selection_open: bool,
     pub selection_scroll: usize,
     pub selection_lines: usize,
     pub selection_viewport: usize,
@@ -188,7 +189,6 @@ pub struct App {
     pub collapsed: HashSet<u32>,
     pub gpu_only: bool,
     pub own_only: bool,
-    pub paused: bool,
     pub help: bool,
     pub settings: bool,
     pub setting_index: usize,
@@ -275,6 +275,7 @@ impl App {
             process_history: Default::default(),
             process_detail_rect: Default::default(),
             selected_workload: None,
+            selection_open: false,
             selection_scroll: 0,
             selection_lines: 0,
             selection_viewport: 0,
@@ -291,7 +292,6 @@ impl App {
             collapsed: HashSet::new(),
             gpu_only: false,
             own_only: false,
-            paused: false,
             help: false,
             settings: false,
             setting_index: 0,
@@ -334,9 +334,6 @@ impl App {
     }
 
     pub fn ingest(&mut self, snapshot: Snapshot) {
-        if self.paused {
-            return;
-        }
         let mut snapshot = snapshot;
         let applications = crate::tags::annotate(&mut snapshot);
         self.ingest_annotated(snapshot, applications);
@@ -348,9 +345,6 @@ impl App {
         mut snapshot: Snapshot,
         applications: Vec<crate::applications::Application>,
     ) {
-        if self.paused {
-            return;
-        }
         snapshot
             .alerts
             .extend(crate::diagnostics::resource_alerts(&snapshot, &self.config));
@@ -437,7 +431,7 @@ impl App {
                 self.selected = index;
             } else {
                 self.selected_connection = None;
-                self.selection_scroll = 0;
+                self.close_selection();
                 self.selected = 0;
             }
         }
@@ -467,6 +461,7 @@ impl App {
                 self.selected = index;
             } else {
                 self.selected_workload = None;
+                self.close_selection();
             }
         }
         if let Some(process) = self.selected_process().cloned() {
@@ -791,7 +786,7 @@ impl App {
                 .get(self.selected)
                 .map(|c| c.id.clone());
             if identity != self.selected_connection {
-                self.selection_scroll = 0;
+                self.close_selection();
             }
             self.selected_connection = identity;
         }
@@ -808,7 +803,7 @@ impl App {
                 _ => None,
             };
             if workload != self.selected_workload {
-                self.selection_scroll = 0;
+                self.close_selection();
             }
             self.selected_workload = workload;
             if self.view != View::Gpu {
@@ -821,7 +816,7 @@ impl App {
             (p.pid, p.start_time)
         });
         if identity != self.selected_process {
-            self.selection_scroll = 0;
+            self.close_selection();
             self.process_history = Default::default();
         }
         self.selected_process = identity;
@@ -856,9 +851,28 @@ impl App {
         self.clear_process_selection();
         self.selected_workload = None;
         self.selected_connection = None;
+        self.close_selection();
+    }
+    pub fn close_selection(&mut self) {
+        self.selection_open = false;
+        self.process_detail_rect = Default::default();
         self.selection_scroll = 0;
         self.selection_lines = 0;
         self.selection_viewport = 0;
+    }
+    /// Open sampled details only after explicit activation of a table row.
+    pub fn open_selection(&mut self) -> bool {
+        if self.has_process_table() && !self.process_grouped() {
+            self.selection_open = self.selected_process().is_some();
+        } else if matches!(self.view, View::Services | View::Containers)
+            || self.view == View::Network && self.network_section == 0
+        {
+            self.remember_selection();
+            self.selection_open = self.has_row_selection();
+        } else {
+            return false;
+        }
+        self.selection_open
     }
     pub fn has_row_selection(&self) -> bool {
         self.has_process_table() && self.selected_process.is_some()
@@ -883,6 +897,9 @@ impl App {
     }
 
     pub fn clear_process_selection(&mut self) {
+        if self.selected_process.is_some() {
+            self.close_selection();
+        }
         self.selected_process = None;
         self.process_order.clear();
         self.process_history = Default::default();

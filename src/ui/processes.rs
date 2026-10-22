@@ -80,7 +80,7 @@ pub(super) fn process_table(frame: &mut Frame, area: Rect, app: &mut App, p: Pal
         program_groups(frame, area, app, p);
         return;
     }
-    if app.selected_process().is_some() && area.height >= 9 {
+    if app.selection_open && app.selected_process().is_some() && area.height >= 9 {
         let (list, detail) = super::selection::split(area);
         if detail.height >= 14 && detail.width >= 40 {
             let panes =
@@ -165,7 +165,7 @@ fn process_history(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     let h = &app.process_history;
     let plots = [
         (
-            "CPU · core %",
+            "CPU · 100% = 1 core",
             &h.cpu,
             p.mint,
             crate::plot::nice_max(h.cpu.iter().copied().fold(100., f64::max)),
@@ -179,7 +179,7 @@ fn process_history(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
             "B",
         ),
         (
-            "GPU · process %",
+            "GPU · process",
             &h.gpu,
             p.blue,
             crate::plot::nice_max(

@@ -616,7 +616,8 @@ fn gpu_focus_keeps_metrics_processes_and_metadata_on_the_same_page() {
         assert!(text.contains("PROCESSES") && text.contains("DEVICE INFO"));
         if width == 160 {
             assert!(text.contains("GPU LOAD"));
-            assert!(text.contains("TEMPERATURE ·") && text.contains("POWER ·"));
+            assert!(text.contains("TEMPERATURE (°C)") && text.contains("POWER (W)"));
+            assert!(text.contains("GPU LOAD (%)") && text.contains("VRAM (%)"));
             assert!(text.contains("PCI Bus-ID"));
             assert!(!text.contains("\"pci_bus_id\""));
         }

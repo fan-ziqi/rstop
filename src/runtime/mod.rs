@@ -74,7 +74,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         .transpose()?;
     let replay_len = replay_data.as_ref().map_or(0, Vec::len);
     let replay_index = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let replay_paused = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let mut recorder = args
         .record
         .as_ref()
@@ -88,7 +87,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         let mut config = config.clone();
         let gpu = config.collect_gpu;
         let replay_index = replay_index.clone();
-        let replay_paused = replay_paused.clone();
         thread::Builder::new()
             .name("rstop-sampler".into())
             .spawn(move || {
@@ -105,10 +103,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                         config = current.clone();
                     }
                     config.interval_ms = interval.load(Ordering::Relaxed);
-                    if replay_data.is_some() && replay_paused.load(Ordering::Relaxed) {
-                        crate::wait_until(Instant::now() + Duration::from_millis(80));
-                        continue;
-                    }
                     let needed = sources.needs();
                     let mut data = if let Some(snapshots) = &replay_data {
                         let index =
@@ -274,7 +268,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     worker.thread().unpark();
                 }
             }
-            replay_paused.store(app.paused, Ordering::Relaxed);
             app.config.sort_index = app.sort.stored();
             app.config.reverse_sort = app.reverse;
             app.config.tree = app.tree;

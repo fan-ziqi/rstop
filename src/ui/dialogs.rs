@@ -268,10 +268,10 @@ Keys always appear in [brackets]. Click a control or press its key.
   [F3] Filter  Search the current table
   [F4] Sort    Choose a field or reverse the current order
   [F5] View    Panel focus, chart window, zoom and sampling
-  [Enter]      Details for the selected row
+  [Enter]      Open the selected row's detail pane; [d] full details
   [F6] Tools   Actions for the current resource or selected object
-  [F8] Pause   Freeze / resume the display or replay
-  [Esc]        Back: close, unselect, clear filter, then main menu
+  [F7] Logs    Process output, service journal or container logs
+  [Esc]        Back: close pane/popup, unselect, clear filter, then menu
   [F1] Help    [F2] Settings    [F10] Quit
 
 SELECT AND SEARCH
@@ -284,7 +284,9 @@ SELECT AND SEARCH
   Text editors support arrows, Home/End and Ctrl+A/E/U/K/W.
   Filters: name:python  user:alice cpu:>10  !name:rust
   Regex: name:/python|torch/     OR: pid:42 | mem:>1024
-  Select a row, then click its detail labels for related actions.
+  Select a row, then [Enter] opens its pane. Selection alone stays in the table.
+  Scroll details with the wheel or [Alt+↑↓/PgUp/PgDn/Home/End].
+  Click detail labels or use [F6] for related actions.
 
 NETWORK
   Interfaces and Connections share one page. Click or scroll a table
@@ -321,7 +323,7 @@ These remain available; menus show the key beside each action.
   [F9/K] Signal menu / SIGKILL; [y] confirms fixed targets
   [W/z/Z] Chart window / zoom in / out; [+/-] Sampling speed
   [S/T] GPU processes; [I] Device table; [m] Advanced process / workload tools
-  [Space] Pause; [,/.] Replay backward / forward ten samples
+  [,/.] Replay backward / forward ten samples
   [?/Esc] Main menu; [:] All commands; [c/i/w] Theme / loopback / save
   [q] or [Ctrl+C] Quit (q is text while editing)
 

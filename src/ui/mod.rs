@@ -259,12 +259,13 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             );
             return;
         }
+        let buttons = footer_buttons(app, area.width, false);
         let parts = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(if area.height >= 28 { 3 } else { 1 }),
             Constraint::Length(1),
             Constraint::Min(1),
-            Constraint::Length(1),
+            Constraint::Length(footer_rows(&buttons, area.width)),
         ])
         .split(area);
         header(frame, parts[0], app, p);
@@ -551,12 +552,7 @@ fn context_message(app: &App) -> String {
     crate::diagnostics::summary(app)
 }
 fn header(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
-    let state = match (app.replay, app.paused) {
-        (true, true) => "REPLAY PAUSED",
-        (true, false) => "REPLAY",
-        (false, true) => "PAUSED",
-        _ => "LIVE",
-    };
+    let state = if app.replay { "REPLAY" } else { "LIVE" };
     let right = format!(
         "{state} · Window {} · {:.2}s · up {} ",
         controls::window_label(app),
@@ -584,7 +580,7 @@ fn header(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     frame.render_widget(
         Paragraph::new(right)
             .alignment(Alignment::Right)
-            .style(Style::new().fg(if app.paused { p.amber } else { p.muted })),
+            .style(Style::new().fg(p.muted)),
         Rect::new(area.right() - width, area.y, width, 1),
     );
 }
@@ -629,9 +625,13 @@ fn tabs(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     }
 }
 
-fn footer(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
+fn footer_buttons(
+    app: &App,
+    width: u16,
+    editing: bool,
+) -> Vec<(crossterm::event::KeyCode, &'static str)> {
     use crossterm::event::KeyCode as K;
-    let mut buttons = if app.editing_filter {
+    let mut buttons = if editing {
         vec![(K::Enter, "Apply"), (K::Esc, "Cancel")]
     } else {
         let mut items = vec![(
@@ -650,45 +650,58 @@ fn footer(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
         {
             items.push((K::F(4), "Sort"));
         }
-        items.push((K::F(6), "Tools"));
-        let used: u16 = items
-            .iter()
-            .map(|(k, l)| controls::button_width(*k, l))
-            .sum::<u16>()
-            + controls::button_width(K::F(10), "Quit");
-        let mut remaining = area.width.saturating_sub(used);
-        let mut optional = vec![];
-        for (key, label) in [
-            (K::F(5), "View"),
-            (K::Enter, "Details"),
-            (K::F(8), if app.paused { "Resume" } else { "Pause" }),
+        items.extend([(K::F(5), "View"), (K::F(6), "Tools")]);
+        if app.has_process_table() || matches!(app.view, View::Services | View::Containers) {
+            items.push((K::F(7), "Logs"));
+        }
+        items.push((K::Enter, "Details"));
+        // Keep every resource action visible. Narrow terminals wrap instead of
+        // silently dropping actions; extra global shortcuts use spare cells.
+        items.push((K::F(10), "Quit"));
+        let rows = footer_rows(&items, width);
+        for extra in [
+            (K::Char(':'), "Commands"),
+            (K::F(1), "Help"),
+            (K::F(2), "Settings"),
         ] {
-            let width = controls::button_width(key, label);
-            if width <= remaining {
-                remaining -= width;
-                optional.push((key, label));
+            let mut candidate = items.clone();
+            candidate.insert(candidate.len() - 1, extra);
+            if footer_rows(&candidate, width) <= rows {
+                items = candidate;
             }
         }
-        let tools = items.pop().expect("Tools is always present");
-        if let Some(i) = optional.iter().position(|(key, _)| *key == K::F(5)) {
-            items.push(optional.remove(i));
-        }
-        if let Some(i) = optional.iter().position(|(key, _)| *key == K::Enter) {
-            items.push(optional.remove(i));
-        }
-        items.push(tools);
-        items.extend(optional);
+        items.pop(); // Quit stays last, including while editing a filter.
         items
     };
     buttons.push((K::F(10), "Quit"));
-    let mut x = area.x;
-    app.footer_actions.clear();
+    buttons
+}
+
+fn footer_rows(buttons: &[(crossterm::event::KeyCode, &str)], width: u16) -> u16 {
+    let mut rows = 1;
+    let mut used = 0;
     for (key, label) in buttons {
+        let cells = controls::button_width(*key, label);
+        if used > 0 && used + cells > width {
+            rows += 1;
+            used = 0;
+        }
+        used += cells;
+    }
+    rows
+}
+
+fn footer(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
+    let mut x = area.x;
+    let mut y = area.y;
+    app.footer_actions.clear();
+    for (key, label) in footer_buttons(app, area.width, app.editing_filter) {
         let width = controls::button_width(key, label);
         if x + width > area.right() {
-            continue;
+            x = area.x;
+            y += 1;
         }
-        let rect = Rect::new(x, area.y, width, 1);
+        let rect = Rect::new(x, y, width, 1);
         controls::key_button(frame, rect, key, label, false, p);
         app.footer_actions.push((rect, key));
         x += width;
