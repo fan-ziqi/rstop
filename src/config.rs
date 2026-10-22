@@ -275,7 +275,7 @@ impl Default for Display {
     fn default() -> Self {
         Self {
             cpu_graph: "total".into(),
-            cpu_graph_lower: "none".into(),
+            cpu_graph_lower: "total".into(),
             temperature_unit: "celsius".into(),
             cpu_sensor: String::new(),
             network_interface: String::new(),

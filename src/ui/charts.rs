@@ -5,6 +5,36 @@ use ratatui::{prelude::*, widgets::*};
 use std::collections::VecDeque;
 
 pub(super) type Series<'a> = (&'a str, &'a VecDeque<f64>, Color);
+pub(super) type CpuSeries<'a> = (&'a str, Option<&'a VecDeque<f64>>);
+
+#[derive(Clone, Copy)]
+enum CpuDirection {
+    Up,
+    Down,
+}
+
+fn cpu_color(level: f64, palette: Palette) -> Color {
+    let light = matches!(palette.panel, Color::Rgb(r, g, b) if u16::from(r) + u16::from(g) + u16::from(b) > 540);
+    let (green, yellow, red) = if light {
+        ((0, 125, 72), (162, 124, 0), (187, 39, 39))
+    } else {
+        // btop's default CPU gradient, with darker stops above for light panels.
+        ((119, 202, 155), (203, 192, 108), (220, 76, 76))
+    };
+    let level = level.clamp(0., 1.);
+    let (start, end, fraction) = if level <= 0.5 {
+        (green, yellow, level * 2.)
+    } else {
+        (yellow, red, (level - 0.5) * 2.)
+    };
+    let blend =
+        |a: u8, b: u8| (f64::from(a) + (f64::from(b) - f64::from(a)) * fraction).round() as u8;
+    Color::Rgb(
+        blend(start.0, end.0),
+        blend(start.1, end.1),
+        blend(start.2, end.2),
+    )
+}
 
 pub(super) fn unit_label(unit: &str) -> &str {
     match unit {
@@ -118,11 +148,11 @@ impl Trend<'_> {
             area.width = area.width.saturating_sub(left);
             area.height -= 1;
         }
-        frame.render_widget(Raster(self, logarithmic), area);
+        frame.render_widget(Raster(self, logarithmic, None), area);
     }
 }
 
-struct Raster<'a>(&'a Trend<'a>, bool);
+struct Raster<'a>(&'a Trend<'a>, bool, Option<CpuDirection>);
 impl Widget for Raster<'_> {
     fn render(self, area: Rect, buffer: &mut Buffer) {
         if area.is_empty() {
@@ -132,6 +162,20 @@ impl Widget for Raster<'_> {
         let height = area.height as usize * 4;
         let mut bits = vec![0u8; area.width as usize * area.height as usize];
         let mut colors = vec![self.0.palette.panel; bits.len()];
+        let inverted = matches!(self.2, Some(CpuDirection::Down));
+        // One fixed color per terminal row prevents horizontal movement from
+        // recoloring all the dots that share a braille character.
+        let row_colors = self.2.map(|_| {
+            (0..area.height)
+                .map(|row| {
+                    let distance = if inverted { row } else { area.height - 1 - row };
+                    cpu_color(
+                        f64::from(distance) / f64::from(area.height.saturating_sub(1).max(1)),
+                        self.0.palette,
+                    )
+                })
+                .collect::<Vec<_>>()
+        });
         let max = self.0.max.max(1.);
         let y = |value: f64| {
             let value = value.clamp(0., max);
@@ -147,32 +191,14 @@ impl Widget for Raster<'_> {
                 return;
             }
             let (x, y) = (x as usize, y as usize);
+            let y = if inverted { height - 1 - y } else { y };
             let index = y / 4 * area.width as usize + x / 2;
             const DOTS: [[u8; 4]; 2] = [[0, 1, 2, 6], [3, 4, 5, 7]];
             bits[index] |= 1 << DOTS[x % 2][y % 4];
-            colors[index] = color;
+            colors[index] = row_colors.as_ref().map_or(color, |rows| rows[y / 4]);
         };
         for (_, values, color) in self.0.series {
             let columns = self.0.window.project(values, width);
-            if self.0.series.len() == 1 {
-                let fill = match (self.0.palette.panel, *color) {
-                    (Color::Rgb(r, g, b), Color::Rgb(cr, cg, cb)) => {
-                        // Blend toward the actual panel so fills stay visible in every theme.
-                        let blend = |base: u8, accent: u8| {
-                            ((u16::from(base) * 55 + u16::from(accent) * 45) / 100) as u8
-                        };
-                        Color::Rgb(blend(r, cr), blend(g, cg), blend(b, cb))
-                    }
-                    _ => *color,
-                };
-                for (x, range) in columns.iter().enumerate() {
-                    if let Some(range) = range {
-                        for row in y(range.last)..height as i32 {
-                            dot(x as i32, row, fill);
-                        }
-                    }
-                }
-            }
             let mut previous = None;
             for (x, range) in columns.iter().enumerate() {
                 let Some(range) = range else {
@@ -181,6 +207,12 @@ impl Widget for Raster<'_> {
                 };
                 let x = x as i32;
                 let end = y(range.last);
+                if self.0.series.len() == 1 {
+                    let top = if self.2.is_some() { y(range.high) } else { end };
+                    for row in top..height as i32 {
+                        dot(x, row, *color);
+                    }
+                }
                 // Keep extrema when several samples share a column; never bridge missing values.
                 for row in y(range.high)..=y(range.low) {
                     dot(x, row, *color);
@@ -201,6 +233,124 @@ impl Widget for Raster<'_> {
                         .set_fg(colors[index]);
                 }
             }
+        }
+    }
+}
+
+pub(super) fn cpu_chart(
+    frame: &mut Frame,
+    mut area: Rect,
+    upper: CpuSeries<'_>,
+    lower: Option<CpuSeries<'_>>,
+    window: Window<'_>,
+    p: Palette,
+) {
+    if area.height < 2 || area.width < 2 {
+        return;
+    }
+    let title = match lower {
+        Some(lower) if lower.0 != upper.0 => {
+            format!("CPU history (%) · ↑ {} / ↓ {}", upper.0, lower.0)
+        }
+        _ if upper.0 != "total" => format!("CPU history (%) · {}", upper.0),
+        _ => "CPU history (%)".into(),
+    };
+    text(
+        frame,
+        Rect::new(area.x, area.y, area.width, 1),
+        Line::styled(title, Style::new().fg(p.muted)),
+        p,
+    );
+    area.y += 1;
+    area.height -= 1;
+    if area.height >= 4 && area.width >= 14 {
+        let axis = 5;
+        let time = if let Some(time) = window.time {
+            format!("−{}", crate::app::commands::time_label(time.seconds))
+        } else {
+            format!(
+                "{} samples",
+                window.capacity((area.width - axis) as usize * 2)
+            )
+        };
+        text(
+            frame,
+            Rect::new(area.x + axis, area.bottom() - 1, area.width - axis, 1),
+            Line::styled(time, Style::new().fg(p.muted)),
+            p,
+        );
+        frame.render_widget(
+            Paragraph::new("now")
+                .alignment(Alignment::Right)
+                .style(Style::new().fg(p.muted)),
+            Rect::new(area.right() - 3, area.bottom() - 1, 3, 1),
+        );
+        area.height -= 1;
+        let center = if lower.is_some() {
+            area.height.div_ceil(2) - 1
+        } else {
+            area.height - 1
+        };
+        let mut labels = vec![("100%", 0), ("0%", center)];
+        if lower.is_some() {
+            labels.push(("100%", area.height - 1));
+        }
+        for (label, row) in labels {
+            text(
+                frame,
+                Rect::new(area.x, area.y + row, axis, 1),
+                Line::styled(label, Style::new().fg(p.muted)),
+                p,
+            );
+        }
+        area.x += axis;
+        area.width -= axis;
+    }
+    let upper_height = if lower.is_some() {
+        area.height.div_ceil(2)
+    } else {
+        area.height
+    };
+    for (metric, rect, direction) in [
+        (
+            Some(upper),
+            Rect::new(area.x, area.y, area.width, upper_height),
+            CpuDirection::Up,
+        ),
+        (
+            lower,
+            Rect::new(
+                area.x,
+                area.y + upper_height,
+                area.width,
+                area.height - upper_height,
+            ),
+            CpuDirection::Down,
+        ),
+    ] {
+        let Some((name, values)) = metric else {
+            continue;
+        };
+        if rect.is_empty() {
+            continue;
+        }
+        if let Some(values) = values {
+            let trend = Trend {
+                series: &[(name, values, p.mint)],
+                max: 100.,
+                window,
+                palette: p,
+                axes: false,
+                unit: "%",
+            };
+            frame.render_widget(Raster(&trend, false, Some(direction)), rect);
+        } else {
+            text(
+                frame,
+                rect,
+                Line::styled(format!("{name} · unavailable"), Style::new().fg(p.muted)),
+                p,
+            );
         }
     }
 }
@@ -330,6 +480,129 @@ pub(super) fn gpu_plot(
 mod tests {
     use super::*;
 
+    fn braille_dot(buffer: &Buffer, x: usize, y: usize) -> bool {
+        const DOTS: [[u8; 4]; 2] = [[0, 1, 2, 6], [3, 4, 5, 7]];
+        let code = buffer[(x as u16 / 2, y as u16 / 4)]
+            .symbol()
+            .chars()
+            .next()
+            .unwrap() as u32;
+        (0x2800..=0x28ff).contains(&code) && (code - 0x2800) & (1 << DOTS[x % 2][y % 4]) != 0
+    }
+
+    #[test]
+    fn cpu_fill_mirrors_geometry_and_keeps_row_colors_stable_while_scrolling() {
+        for theme in crate::config::THEMES {
+            for height in [2, 5, 8] {
+                let area = Rect::new(0, 0, 32, height);
+                let mut values = VecDeque::from([100., 20., 75., f64::NAN, 50., 95., 35., 100.]);
+                let render = |values: &VecDeque<_>, end, direction| {
+                    let mut buffer = Buffer::empty(area);
+                    let trend = Trend {
+                        series: &[("total", values, Color::Green)],
+                        max: 100.,
+                        window: Window {
+                            samples: 64,
+                            end,
+                            time: None,
+                        },
+                        palette: super::super::palette(theme),
+                        axes: false,
+                        unit: "%",
+                    };
+                    Raster(&trend, false, Some(direction)).render(area, &mut buffer);
+                    buffer
+                };
+                let upper = render(&values, 8, CpuDirection::Up);
+                let lower = render(&values, 8, CpuDirection::Down);
+                for y in 0..height as usize * 4 {
+                    for x in 0..64 {
+                        assert_eq!(
+                            braille_dot(&upper, x, y),
+                            braille_dot(&lower, x, height as usize * 4 - 1 - y)
+                        );
+                    }
+                }
+                let Color::Rgb(r, g, _) = upper[(31, 0)].fg else {
+                    panic!("Missing red outer edge");
+                };
+                assert!(r > g);
+                let Color::Rgb(r, g, _) = upper[(31, height - 1)].fg else {
+                    panic!("Missing green center");
+                };
+                assert!(g > r);
+                // Missing and uncollected time stays blank in both halves.
+                for y in 0..height as usize * 4 {
+                    assert!(!braille_dot(&upper, 59, y));
+                    assert!(!braille_dot(&lower, 59, y));
+                    assert!(!braille_dot(&upper, 0, y));
+                }
+                values.push_back(40.);
+                let after = render(&values, 9, CpuDirection::Up);
+                for y in 0..height as usize * 4 {
+                    for x in 2..62 {
+                        let existed = braille_dot(&upper, x + 1, y);
+                        assert_eq!(existed, braille_dot(&after, x, y));
+                        if existed {
+                            assert_eq!(
+                                upper[((x + 1) as u16 / 2, y as u16 / 4)].fg,
+                                after[(x as u16 / 2, y as u16 / 4)].fg
+                            );
+                        }
+                    }
+                }
+                for row in 0..height {
+                    assert_eq!(upper[(31, row)].fg, lower[(31, height - 1 - row)].fg);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cpu_chart_handles_compact_sizes_and_keeps_disabled_or_missing_metrics_explicit() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let values = VecDeque::from([100.; 64]);
+        let window = Window {
+            samples: 64,
+            end: 64,
+            time: None,
+        };
+        let p = super::super::palette("midnight");
+        for width in [2, 12, 32, 80] {
+            for height in [2, 3, 6, 10, 20] {
+                for lower in [None, Some(("total", Some(&values))), Some(("system", None))] {
+                    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                    terminal
+                        .draw(|frame| {
+                            cpu_chart(
+                                frame,
+                                frame.area(),
+                                ("total", Some(&values)),
+                                lower,
+                                window,
+                                p,
+                            )
+                        })
+                        .unwrap();
+                    let buffer = terminal.backend().buffer();
+                    let text: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+                    if width >= 32 && height >= 6 {
+                        assert!(text.contains("CPU history (%)"));
+                        assert!(text.contains("now"));
+                        if lower.is_none() {
+                            assert_eq!(text.matches("100%").count(), 1);
+                        } else {
+                            assert_eq!(text.matches("100%").count(), 2);
+                        }
+                        if matches!(lower, Some(("system", None))) {
+                            assert!(text.contains("system · unavailable"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn compact_plots_keep_units_when_axes_do_not_fit_and_legends_match_the_scale() {
         use ratatui::{Terminal, backend::TestBackend};
@@ -428,7 +701,7 @@ mod tests {
             axes: false,
             unit: "%",
         };
-        Raster(&trend, false).render(area, &mut buffer);
+        Raster(&trend, false, None).render(area, &mut buffer);
         let mut pixels = vec![vec![false; 64]; 32];
         const DOTS: [[u8; 4]; 2] = [[0, 1, 2, 6], [3, 4, 5, 7]];
         for y in 0..32 {

@@ -416,54 +416,24 @@ pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
 }
 
 fn cpu_plots(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
-    let mut fields = vec![app.config.display.cpu_graph.as_str()];
-    if app.config.display.cpu_graph_lower != "none" && area.height >= 6 {
-        fields.push(&app.config.display.cpu_graph_lower);
-    }
-    let rows = Layout::vertical(vec![
-        Constraint::Ratio(1, fields.len() as u32);
-        fields.len()
-    ])
-    .spacing(u16::from(fields.len() > 1))
-    .split(area);
-    for (index, (field, row)) in fields.iter().zip(rows.iter()).enumerate() {
+    let values = |field: &str| {
         let key = format!("CPU {field} (%)");
-        let values = if *field == "total" {
+        if field == "total" {
             Some(&app.history.cpu)
         } else {
             app.history.series.get(&key)
-        };
-        let color = if index == 0 { p.mint } else { p.blue };
-        if let Some(values) = values {
-            plot(
-                frame,
-                *row,
-                &if *field == "total" {
-                    "CPU history".into()
-                } else {
-                    format!("CPU history · {field}")
-                },
-                Trend {
-                    series: &[(field, values, color)],
-                    max: 100.,
-                    window: app.plot_window(),
-                    palette: p,
-                    axes: true,
-                    unit: "%",
-                },
-            );
-        } else {
-            text(
-                frame,
-                *row,
-                Line::styled(
-                    format!("CPU {field} · counter unavailable"),
-                    Style::new().fg(p.muted),
-                ),
-                p,
-            );
         }
-    }
+    };
+    let upper = app.config.display.cpu_graph.as_str();
+    let lower = app.config.display.cpu_graph_lower.as_str();
+    super::charts::cpu_chart(
+        frame,
+        area,
+        (upper, values(upper)),
+        (lower != "none").then(|| (lower, values(lower))),
+        app.plot_window(),
+        p,
+    );
 }
 
 fn cpu_temperature(snapshot: &crate::model::Snapshot) -> Option<f32> {

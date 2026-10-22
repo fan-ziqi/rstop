@@ -245,8 +245,7 @@ fn configured_metrics_expanded_panels_and_temperature_scales_render_from_recorde
     for (width, height) in [(120, 40), (160, 48), (240, 70)] {
         let text = render(&mut app, width, height);
         for marker in [
-            "CPU history (%) · user",
-            "CPU history (%) · system",
+            "CPU history (%) · ↑ user / ↓ system",
             "Temp 122.0°F",
             "Session",
             "Download (bit/s) · log",

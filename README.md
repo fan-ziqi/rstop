@@ -133,6 +133,8 @@ Spaces mean AND; space-delimited ` | ` means OR. Quotes, negation and numeric co
 
 `W` selects 15 seconds to one hour, subject to the 3,600-sample retention limit. Sampling speed is independent of the window. Chart titles retain units when compact layouts omit axes; memory utilization uses `%`, capacity uses `B`, and rates distinguish `B/s` from `bit/s`. Charts enter from the right, leave on the left, preserve peaks in aligned buckets and break at missing observations or long collection gaps. Startup leaves uncollected time blank; the menu reports the actual retained duration.
 
+CPU history fills upward and downward from the center, with green near zero, yellow midway and red near 100%. The upper and lower metrics are configurable; set `display.cpu_graph_lower = "none"` to show only the upper half.
+
 ## Inspect and manage
 
 `F6` offers tools relevant to the current resource and installed utilities. Actions preview the complete command and fixed target before `y` confirmation. Process identity includes PID/start time; Linux signals prefer pidfd. Privileges are not elevated automatically. `--read-only` and replay disable state changes; replay also disables live inspection.
