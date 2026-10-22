@@ -100,13 +100,46 @@ struct Deadline {
 }
 impl Read for Deadline {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        let left = self
-            .end
-            .checked_duration_since(Instant::now())
-            .filter(|d| !d.is_zero())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "Docker read deadline"))?;
-        self.stream.set_read_timeout(Some(left))?;
-        self.stream.read(bytes)
+        if bytes.is_empty() {
+            return Ok(0);
+        }
+        loop {
+            let left = self
+                .end
+                .checked_duration_since(Instant::now())
+                .filter(|d| !d.is_zero())
+                .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "Docker read deadline"))?;
+            let mut descriptor = libc::pollfd {
+                fd: self.stream.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            let ready = unsafe {
+                libc::poll(
+                    &mut descriptor,
+                    1,
+                    left.as_millis().clamp(1, i32::MAX as u128) as i32,
+                )
+            };
+            if ready < 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() == io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(error);
+            }
+            if ready == 0 {
+                continue;
+            }
+            match self.stream.read(bytes) {
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
+                    ) => {}
+                result => return result,
+            }
+        }
     }
 }
 fn line(reader: &mut impl BufRead) -> Result<String> {
@@ -189,6 +222,11 @@ fn get(socket: &str, path: &str, end: Instant) -> Result<Value> {
         "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
     )
     .context("Write Docker request")?;
+    // Poll against the shared deadline on both Linux and macOS instead of
+    // repeatedly changing the socket's receive timeout.
+    stream
+        .set_nonblocking(true)
+        .context("Set Docker read mode")?;
     let data =
         body(&mut BufReader::new(Deadline { stream, end })).context("Read Docker response")?;
     serde_json::from_slice(&data).context("Parse Docker response")
@@ -397,6 +435,34 @@ pub(crate) fn discover_with_updates(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stalled_socket_read_obeys_the_deadline() {
+        let (stream, _peer) = UnixStream::pair().unwrap();
+        stream.set_nonblocking(true).unwrap();
+        let mut reader = Deadline {
+            stream,
+            end: Instant::now() + Duration::from_millis(20),
+        };
+        assert_eq!(
+            reader.read(&mut [0]).unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[test]
+    fn queued_response_remains_readable_after_the_peer_closes() {
+        let (stream, mut peer) = UnixStream::pair().unwrap();
+        stream.set_nonblocking(true).unwrap();
+        peer.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}")
+            .unwrap();
+        drop(peer);
+        let mut reader = BufReader::new(Deadline {
+            stream,
+            end: Instant::now() + Duration::from_secs(1),
+        });
+        assert_eq!(body(&mut reader).unwrap(), b"{}");
+    }
+
     #[test]
     fn http_handles_chunk_extensions_and_rejects_incomplete_or_oversized_data() {
         let data=b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2;ignored=true\r\n{}\r\n0\r\n\r\n";
