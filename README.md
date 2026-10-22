@@ -1,5 +1,3 @@
-[![rstop — eight native resource views](docs/assets/rstop-demo.gif)](https://fan-ziqi.github.io/rstop/)
-
 # rstop
 
 [![Build](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml)
@@ -9,7 +7,9 @@
 
 **One terminal. Your whole system.** A Rust TUI for local CPU, GPU, processes, storage, networking, containers and services on Linux, macOS and Windows.
 
-[Feature and platform coverage](COVERAGE.md) · [Benchmarks](BENCHMARK.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
+[Website](https://fan-ziqi.github.io/rstop/) · [Feature and platform coverage](COVERAGE.md) · [Benchmarks](BENCHMARK.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
+
+[![rstop — eight native resource views](docs/assets/rstop-demo.gif)](https://fan-ziqi.github.io/rstop/)
 
 ## Install
 
