@@ -74,7 +74,8 @@ impl Input<'_> {
         if app.main_menu.is_some() {
             return self.main_menu_key(app, key);
         }
-        if !app.editing_filter
+        if !app.gpu_info_open()
+            && !app.editing_filter
             && key.modifiers.contains(KeyModifiers::ALT)
             && app.process_detail_rect.height > 0
         {
@@ -126,6 +127,35 @@ impl Input<'_> {
             app.selected = 0;
             app.table_offset = 0;
             app.clear_active_selection();
+            return true;
+        }
+        if app.gpu_info_open() {
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('q' | 'I' | 'S' | 'G' | 'D') => {
+                    app.focus_panel(0);
+                    self.last_click = None;
+                }
+                KeyCode::Char('/' | 'f') => app.begin_filter(),
+                KeyCode::Up | KeyCode::BackTab | KeyCode::Char('k') => app.move_selection(-1),
+                KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => app.move_selection(1),
+                KeyCode::PageUp => app.move_selection(-(app.table_rect.height.max(1) as isize)),
+                KeyCode::PageDown => app.move_selection(app.table_rect.height.max(1) as isize),
+                KeyCode::Home | KeyCode::End => {
+                    app.selected = if key.code == KeyCode::Home {
+                        0
+                    } else {
+                        app.row_count().saturating_sub(1)
+                    };
+                    app.remember_selection();
+                }
+                KeyCode::Delete => {
+                    app.filter.clear();
+                    app.selected = 0;
+                    app.table_offset = 0;
+                }
+                KeyCode::Enter | KeyCode::Char('d') => inspect(app),
+                _ => {}
+            }
             return true;
         }
         if app.process_grouped() && matches!(key.code, KeyCode::Enter | KeyCode::Char('d')) {
@@ -563,6 +593,7 @@ impl Input<'_> {
                     KeyCode::Char('T') => 1,
                     _ => 2,
                 });
+                self.last_click = None;
             }
             KeyCode::Char('P') | KeyCode::Char('M')
                 if app.has_process_table()
@@ -2162,6 +2193,138 @@ mod tests {
             assert!(app.signal.is_none());
         });
     }
+    #[test]
+    fn gpu_info_button_preserves_process_selection_and_supports_search_and_nested_details() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+        for (width, height) in [(60, 18), (100, 30), (160, 48)] {
+            run(|input, app| {
+                app.snapshot.gpus.push(Gpu {
+                    uuid: "gpu-0".into(),
+                    name: "Test GPU".into(),
+                    extra: [("pci_bus_id".into(), serde_json::json!("0000:01:00.0"))].into(),
+                    ..Default::default()
+                });
+                app.snapshot.processes[0].gpu_ids = vec![0];
+                app.set_view(View::Gpu);
+                app.filter = "worker".into();
+                app.move_selection(1);
+                app.open_selection();
+                let identity = app.selected_process;
+                let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                let button = app
+                    .controls
+                    .iter()
+                    .find(|(_, key)| *key == KeyCode::Char('I'))
+                    .unwrap()
+                    .0;
+                input.mouse(
+                    app,
+                    MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: button.x + 1,
+                        row: button.y,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                press(input, app, KeyCode::Null);
+                assert!(app.gpu_info_open());
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                assert!(app.popup_rect.width < width && app.popup_rect.height < height);
+                assert!(app.table_rect.height > 1);
+                press(input, app, KeyCode::PageDown);
+                assert!(app.selected > 0);
+                press(input, app, KeyCode::F(3));
+                for code in "pci".chars() {
+                    press(input, app, KeyCode::Char(code));
+                }
+                press(input, app, KeyCode::Enter);
+                assert_eq!(app.filter, "pci");
+                assert_eq!(app.row_count(), 3);
+                press(input, app, KeyCode::Char('2'));
+                assert_eq!(app.view, View::Gpu);
+                press(input, app, KeyCode::Enter);
+                assert!(app.detail.as_ref().unwrap().1.contains("0000:01:00.0"));
+                press(input, app, KeyCode::Esc);
+                assert!(app.detail.is_none() && app.gpu_info_open());
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                let close = app
+                    .popup_actions
+                    .iter()
+                    .find(|(_, key)| *key == KeyCode::Esc)
+                    .unwrap()
+                    .0;
+                input.mouse(
+                    app,
+                    MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: close.x,
+                        row: close.y,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                press(input, app, KeyCode::Null);
+                assert!(!app.gpu_info_open());
+                assert_eq!(app.filter, "worker");
+                assert_eq!(app.selected_process, identity);
+                assert!(app.selection_open);
+            });
+        }
+    }
+
+    #[test]
+    fn gpu_double_click_opens_the_clicked_device_without_moving_cards_or_clicking_through() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+        run(|input, app| {
+            app.snapshot.gpus = (0..8)
+                .map(|id| Gpu {
+                    id,
+                    uuid: format!("gpu-{id}"),
+                    name: format!("Test GPU {id}"),
+                    ..Default::default()
+                })
+                .collect();
+            app.set_view(View::Gpu);
+            app.selected_gpu = 7;
+            let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
+            terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+            let cards = app.gpu_ranges.clone();
+            let (card, index) = cards[0];
+            let click = MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: card.x + 4,
+                row: card.y + 1,
+                modifiers: KeyModifiers::NONE,
+            };
+            input.mouse(app, click);
+            assert_eq!(app.selected_gpu, index);
+            assert!(!app.gpu_info_open());
+            terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+            assert_eq!(app.gpu_ranges, cards);
+            input.mouse(app, click);
+            assert!(app.gpu_info_open());
+            assert_eq!(app.selected_gpu, index);
+            terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+            press(input, app, KeyCode::F(3));
+            input.mouse(
+                app,
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 0,
+                    row: 0,
+                    modifiers: KeyModifiers::NONE,
+                },
+            );
+            assert!(!app.gpu_info_open() && !app.editing_filter);
+            assert_eq!(app.view, View::Gpu);
+            assert_eq!(app.selected_gpu, index);
+            assert!(app.main_menu.is_none());
+            assert!(input.queued_key.is_none());
+        });
+    }
+
     #[test]
     fn visible_keys_drive_windows_gpu_sections_sort_and_commands_without_a_mouse() {
         run(|input, app| {

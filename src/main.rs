@@ -34,7 +34,7 @@ pub struct Args {
     theme: Option<String>,
     #[arg(global = true, long,value_parser=["overview","processes","gpu","storage","network","system","containers","services","explorer","history","events"])]
     view: Option<String>,
-    /// Initial GPU panel focus; all panels remain on one page (history aliases summary)
+    /// Initial GPU display; device opens Device info (history aliases summary)
     #[arg(global = true, long, default_value="summary", value_parser=["summary","history","device"])]
     gpu_panel: String,
     /// Alternate configuration file

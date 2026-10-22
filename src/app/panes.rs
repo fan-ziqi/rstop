@@ -138,6 +138,9 @@ impl App {
         self.gpu_panes[section].clone().apply(self);
         self.selected = self.selected.min(self.row_count().saturating_sub(1));
     }
+    pub fn gpu_info_open(&self) -> bool {
+        self.view == View::Gpu && self.gpu_section == 2
+    }
     pub fn jump_selection(&mut self, end: bool) {
         let focus = self.focused_panel();
         self.focus_panel(0);

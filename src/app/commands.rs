@@ -193,7 +193,7 @@ impl App {
             (
                 vec![
                     ("Focus GPU processes".into(), KeyCode::Null),
-                    ("Focus device information".into(), KeyCode::Null),
+                    ("Device info".into(), KeyCode::Null),
                 ],
                 usize::from(self.gpu_section == 2),
             )
@@ -310,7 +310,7 @@ impl App {
         if self.view == View::Gpu {
             items.extend([
                 ("Focus GPU processes".into(), KeyCode::Char('S')),
-                ("Focus device information".into(), KeyCode::Char('I')),
+                ("Device info".into(), KeyCode::Char('I')),
                 ("Previous GPU".into(), KeyCode::Char('[')),
                 ("Next GPU".into(), KeyCode::Char(']')),
             ]);

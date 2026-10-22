@@ -40,6 +40,28 @@ pub(super) fn menu(
     (inner, state.offset(), area)
 }
 
+pub(super) fn surface(
+    frame: &mut Frame,
+    area: Rect,
+    title: &str,
+    p: Palette,
+    accent: Color,
+) -> Rect {
+    let shadow =
+        Rect::new(area.x + 2, area.y + 1, area.width, area.height).intersection(frame.area());
+    let shadow_color = match p.bg {
+        Color::Rgb(r, g, b) => Color::Rgb(r / 3, g / 3, b / 3),
+        color => color,
+    };
+    frame.render_widget(Block::new().style(Style::new().bg(shadow_color)), shadow);
+    frame.render_widget(Clear, area);
+    let title = super::tags::elide(title.trim(), area.width.saturating_sub(6));
+    let border = block(format!(" {title} "), p, accent).padding(Padding::new(2, 2, 1, 1));
+    let inner = border.inner(area);
+    frame.render_widget(border, area);
+    inner
+}
+
 pub(super) fn popup(area: Rect, width: u16, height: u16) -> Rect {
     let w = width.min(area.width.saturating_sub(4));
     let h = height.min(area.height.saturating_sub(2));
@@ -306,15 +328,16 @@ OTHER RESOURCE TOOLS
   Advanced process tools contains signals, priority, affinity and tracing.
   Storage: large folders, inodes, deleted-open files and kernel messages.
   Services / containers: logs, details and management with confirmation.
-  GPU: cards, charts, processes and device info share one page.
-  Click a table or [F5] to focus it; [F5] also selects another GPU.
+  GPU: cards, charts and processes share one page.
+  [I] Device info or double-click a GPU card opens its searchable popup.
+  [F5] also selects another GPU.
   Overview GPU card: click Prev or Next, or choose a GPU action in [F5].
   Press '[' for the previous GPU, ']' for the next GPU; selection wraps around.
   Diagnosis includes trends, related alerts and investigation steps.
 
 COMPATIBILITY SHORTCUTS
 These remain available; menus show the key beside each action.
-  [f] or [/] Filter; [s] Sort; [r] Reverse; [D] Focus the other network/GPU table
+  [f] or [/] Filter; [s] Sort; [r] Reverse; [D] Other network table / GPU info
   [N/C/F] Network test / capture / read PCAP; [p] Owning process
   [R/O/J] Diagnose / additional details / Linux kernel and OOM
   [F7] or [l] Output/logs; [e/o] Environment / open files

@@ -32,7 +32,8 @@ impl Input<'_> {
             || app.settings
             || app.detail.is_some()
             || app.help
-            || app.main_menu.is_some();
+            || app.main_menu.is_some()
+            || app.gpu_info_open();
         if has_popup
             && !app.popup_rect.is_empty()
             && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
@@ -47,6 +48,9 @@ impl Input<'_> {
                 && !app.settings
             {
                 app.detail_search = false;
+                if app.gpu_info_open() {
+                    app.editing_filter = false;
+                }
             }
             if app
                 .ui_menu
@@ -73,6 +77,20 @@ impl Input<'_> {
                 .contains((mouse.column, mouse.row).into())
         {
             app.focus_panel_at(mouse.column, mouse.row);
+        }
+        if has_popup
+            && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && let Some((_, key)) = app
+                .popup_actions
+                .iter()
+                .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
+        {
+            if app.gpu_info_open() && app.detail.is_none() && *key == KeyCode::Esc {
+                app.editing_filter = false;
+            }
+            self.queued_key = Some(KeyEvent::new(*key, KeyModifiers::NONE));
+            self.last_click = None;
+            return;
         }
         if let Some(menu) = &mut app.ui_menu {
             match mouse.kind {
@@ -120,6 +138,31 @@ impl Input<'_> {
         if app.prompt.is_some() || app.signal.is_some() {
             return;
         }
+        if app.gpu_info_open()
+            && app.detail.is_none()
+            && !app.help
+            && !app.settings
+            && app.main_menu.is_none()
+        {
+            match mouse.kind {
+                MouseEventKind::ScrollDown => app.move_selection(3),
+                MouseEventKind::ScrollUp => app.move_selection(-3),
+                MouseEventKind::Down(MouseButton::Left) => {
+                    if app.filter_rect.contains((mouse.column, mouse.row).into()) {
+                        app.begin_filter();
+                    } else if app.table_rect.contains((mouse.column, mouse.row).into()) {
+                        let index = app.table_offset + (mouse.row - app.table_rect.y) as usize;
+                        if index < app.row_count() {
+                            app.selected = index;
+                            app.remember_selection();
+                            app.editing_filter = false;
+                        }
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
         if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
             && app.detail.is_none()
             && !app.help
@@ -132,6 +175,7 @@ impl Input<'_> {
                 .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
             {
                 app.editing_filter = false;
+                self.last_click = None;
                 self.queued_key = Some(KeyEvent::new(*code, KeyModifiers::NONE));
                 return;
             }
@@ -140,10 +184,20 @@ impl Input<'_> {
                 .iter()
                 .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
             {
-                app.selected_gpu = *index;
-                app.selected = 0;
-                app.clear_process_selection();
-
+                let index = *index;
+                if app.selected_gpu != index {
+                    app.selected_gpu = index;
+                    app.selected = 0;
+                    app.clear_process_selection();
+                }
+                if self.last_click.is_some_and(|(at, x, y)| {
+                    at.elapsed() < Duration::from_millis(400) && x == mouse.column && y == mouse.row
+                }) {
+                    app.focus_panel(2);
+                    self.last_click = None;
+                } else {
+                    self.last_click = Some((Instant::now(), mouse.column, mouse.row));
+                }
                 return;
             }
             if let Some((_, code)) = app

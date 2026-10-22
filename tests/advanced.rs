@@ -570,7 +570,7 @@ fn every_gpu_plot_and_sort_menu_renders_across_sizes() {
 }
 
 #[test]
-fn gpu_focus_keeps_metrics_processes_and_metadata_on_the_same_page() {
+fn gpu_info_opens_in_a_popup_while_metrics_and_processes_keep_the_page() {
     let mut app = App::new(Config::default());
     app.ingest(Snapshot {
         gpus: vec![Gpu {
@@ -613,13 +613,35 @@ fn gpu_focus_keeps_metrics_processes_and_metadata_on_the_same_page() {
             .map(|c| c.symbol())
             .collect::<String>();
         assert!(text.contains("595.99.02") && text.contains("13.2"));
-        assert!(text.contains("PROCESSES") && text.contains("DEVICE INFO"));
-        if width == 160 {
+        if app.gpu_info_open() {
+            assert!(text.contains("DEVICE INFO"));
+            assert!(!app.popup_rect.is_empty());
+        } else {
+            assert!(text.contains("PROCESSES") && text.contains("Device info"));
+            assert!(!text.contains("DEVICE INFO"));
+            assert!(app.popup_rect.is_empty());
+        }
+        if width == 160 && !app.gpu_info_open() {
             assert!(text.contains("GPU LOAD"));
             assert!(text.contains("TEMPERATURE (°C)") && text.contains("POWER (W)"));
             assert!(text.contains("GPU LOAD (%)") && text.contains("VRAM (%)"));
-            assert!(text.contains("PCI Bus-ID"));
-            assert!(!text.contains("\"pci_bus_id\""));
+            // The popup keeps device fields searchable without occupying the page.
+            let focus = app.focused_panel();
+            app.focus_panel(2);
+            app.filter = "pci".into();
+            term.draw(|f| rstop::ui::draw(f, &mut app)).unwrap();
+            let filtered: String = term
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            assert!(filtered.contains("PCI Bus-ID"));
+            assert!(filtered.contains("0000:01:00.0"));
+            assert!(!filtered.contains("\"pci_bus_id\""));
+            app.filter.clear();
+            app.focus_panel(focus);
         }
     }
     let rows = rstop::fields::gpu(&app.snapshot.gpus[0], "persistence");

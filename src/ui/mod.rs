@@ -217,6 +217,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
     let area = frame.area();
     app.popup_rect = Rect::default();
+    app.popup_actions.clear();
     app.update_buttons.clear();
     app.tab_ranges.clear();
     app.label_hits.clear();
@@ -237,7 +238,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         || app.ui_menu.is_some()
         || app.action_menu.is_some()
         || app.prompt.is_some()
-        || app.signal.is_some();
+        || app.signal.is_some()
+        || app.gpu_info_open();
     let backdrop = app
         .main_menu
         .as_ref()
@@ -297,7 +299,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             View::History => history_view(frame, parts[3], app, p),
             View::Events => event_view(frame, parts[3], app, p),
         }
-        controls::table_header(frame, app, p);
+        if !app.gpu_info_open() {
+            controls::table_header(frame, app, p);
+        }
         footer(frame, parts[4], app, p);
         if child_overlay || app.main_menu.is_some() {
             controls::dim(frame);
@@ -311,6 +315,12 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     if app.main_menu.is_some() {
         main_menu::draw(frame, app, p);
         if child_overlay {
+            controls::dim(frame);
+        }
+    }
+    if app.gpu_info_open() {
+        gpu::device_info(frame, app, p);
+        if app.detail.is_some() {
             controls::dim(frame);
         }
     }

@@ -248,13 +248,13 @@ fn disabled_gpu_and_recorded_empty_pages_do_not_show_live_loading_messages() {
 }
 
 #[test]
-fn network_and_gpu_tables_stay_visible_together_at_all_supported_sizes() {
+fn network_tables_and_gpu_processes_keep_rows_at_all_supported_sizes() {
     for (width, height) in [(60, 18), (80, 24), (120, 36), (160, 48)] {
         let mut app = App::new(Config::default());
         app.ingest(fixture());
         for (view, focus, labels) in [
             (View::Network, 1, ["CONNECTIONS", "INTERFACES"]),
-            (View::Gpu, 2, ["PROCESSES", "DEVICE INFO"]),
+            (View::Gpu, 0, ["PROCESSES", "Device info"]),
         ] {
             app.set_view(view);
             for section in [0, focus] {
@@ -266,7 +266,10 @@ fn network_and_gpu_tables_stay_visible_together_at_all_supported_sizes() {
                         "{view:?} {width}x{height}: {label}\n{text}"
                     );
                 }
-                assert_eq!(app.panel_regions.len(), 2);
+                assert_eq!(
+                    app.panel_regions.len(),
+                    if view == View::Gpu { 1 } else { 2 }
+                );
                 for region in &app.panel_regions {
                     assert!(
                         region.table.height >= 1,

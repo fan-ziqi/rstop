@@ -3,6 +3,7 @@ use super::{
     text,
 };
 use crate::{app::App, model::percent};
+use crossterm::event::KeyCode;
 use ratatui::{prelude::*, widgets::*};
 use std::collections::VecDeque;
 pub(super) fn gpu_view(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
@@ -38,11 +39,33 @@ pub(super) fn gpu_view(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
     gpu_content(frame, rows[1], app, p);
 }
 pub(super) fn gpu_fields(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
-    let Some(gpu) = app.snapshot.gpus.get(app.selected_gpu) else {
-        return;
-    };
-    let fields = crate::fields::gpu(gpu, &app.filter);
-    let grouped = area.width >= 85;
+    let title = app
+        .snapshot
+        .gpus
+        .get(app.selected_gpu)
+        .map(|gpu| format!("DEVICE INFO · GPU {}", gpu.id))
+        .unwrap_or_else(|| "DEVICE INFO".into());
+    let inner = super::dialogs::surface(frame, area, &title, p, p.blue);
+    app.controls_rect = Rect::new(inner.x, inner.y, inner.width, 1);
+    let table = Rect::new(
+        inner.x,
+        inner.y + 2,
+        inner.width.saturating_sub(1),
+        inner.height.saturating_sub(4),
+    );
+    app.table_rect = Rect::new(
+        table.x,
+        table.y + 1,
+        table.width,
+        table.height.saturating_sub(1),
+    );
+    let fields = app
+        .snapshot
+        .gpus
+        .get(app.selected_gpu)
+        .map(|gpu| crate::fields::gpu(gpu, &app.filter))
+        .unwrap_or_default();
+    let grouped = table.width >= 85;
     let rows = fields.iter().map(|(group, name, value)| {
         if grouped {
             Row::new(vec![group.clone(), name.clone(), value.clone()])
@@ -50,15 +73,6 @@ pub(super) fn gpu_fields(frame: &mut Frame, area: Rect, app: &mut App, p: Palett
             Row::new(vec![name.clone(), value.clone()])
         }
     });
-    let title = format!(" DEVICE INFO · GPU {} ", gpu.id);
-    let b = super::controls::selectable_block(title, area, app, p, p.blue);
-    let inner = b.inner(area);
-    app.table_rect = Rect::new(
-        inner.x,
-        inner.y + 1,
-        inner.width,
-        inner.height.saturating_sub(1),
-    );
     let mut state = TableState::default()
         .with_selected((!fields.is_empty() && app.panel_focused).then_some(app.selected))
         .with_offset(app.table_offset);
@@ -83,12 +97,70 @@ pub(super) fn gpu_fields(frame: &mut Frame, area: Rect, app: &mut App, p: Palett
             })
             .style(Style::new().fg(p.muted)),
         )
-        .block(b)
         .row_highlight_style(Style::new().bg(p.selection)),
-        area,
+        table,
         &mut state,
     );
     app.table_offset = state.offset();
+    if fields.is_empty() {
+        frame.render_widget(
+            Paragraph::new(if app.filter.is_empty() {
+                "No device data available"
+            } else {
+                "No matching fields"
+            })
+            .style(Style::new().fg(p.muted)),
+            app.table_rect,
+        );
+    }
+    if fields.len() > app.table_rect.height as usize {
+        let mut scroll = ScrollbarState::new(fields.len())
+            .position(app.table_offset)
+            .viewport_content_length(app.table_rect.height as usize);
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .thumb_style(Style::new().fg(p.mint))
+                .track_style(Style::new().fg(p.border)),
+            Rect::new(table.right(), app.table_rect.y, 1, app.table_rect.height),
+            &mut scroll,
+        );
+    }
+    let status = if fields.is_empty() {
+        "0 fields".into()
+    } else {
+        format!(
+            "{}–{} / {} fields · [↑↓/PgUp/PgDn] Scroll",
+            app.table_offset + 1,
+            (app.table_offset + app.table_rect.height as usize).min(fields.len()),
+            fields.len()
+        )
+    };
+    frame.render_widget(
+        Paragraph::new(status).style(Style::new().fg(p.muted)),
+        Rect::new(inner.x, inner.bottom() - 2, inner.width, 1),
+    );
+    app.popup_actions.clear();
+    let mut x = inner.x;
+    for (key, label, width) in [
+        (KeyCode::Esc, "Back", 13),
+        (KeyCode::Char('/'), "Find", 12),
+        (KeyCode::Enter, "Inspect", 19),
+    ] {
+        let rect = Rect::new(x, inner.bottom() - 1, width, 1);
+        if rect.right() > inner.right() {
+            break;
+        }
+        super::controls::nav_button(frame, rect, key, label, false, p, p.panel);
+        app.popup_actions.push((rect, key));
+        x += width;
+    }
+}
+pub(super) fn device_info(frame: &mut Frame, app: &mut App, p: Palette) {
+    let area = super::dialogs::popup(frame.area(), 110, 32);
+    super::panes::draw(frame, area, 2, app, p, gpu_fields);
+    app.popup_rect = area;
 }
 pub(super) fn gpu_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     if app.snapshot.gpus.is_empty() {
@@ -121,65 +193,74 @@ pub(super) fn gpu_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palet
         super::visuals::empty(frame, area, title, hint, p);
         return;
     }
-    let card_height = if area.height >= 28 {
-        7
-    } else if area.height >= 18 {
+    let card_height = if area.height >= 24 { 4 } else { 3 };
+    // Taller windows can show more devices while retaining charts and process rows.
+    let card_budget = area
+        .height
+        .saturating_sub(28)
+        .max(if area.height >= 24 { 8 } else { 3 });
+    let visible = (card_budget / card_height).max(1) as usize;
+    let cards_height = card_height * visible.min(app.snapshot.gpus.len()) as u16;
+    let body_height = area.height.saturating_sub(cards_height);
+    let process_min = if area.height >= 36 {
+        14
+    } else if app.selection_open {
+        9
+    } else {
         5
-    } else {
-        3
     };
-    let rows = Layout::vertical([Constraint::Length(card_height), Constraint::Min(8)]).split(area);
-    gpu_cards(frame, rows[0], app, p);
-    if area.width >= 130 && rows[1].height >= 18 {
-        let columns = Layout::horizontal([Constraint::Percentage(64), Constraint::Percentage(36)])
-            .split(rows[1]);
-        let left = Layout::vertical([
-            Constraint::Length((columns[0].height / 2).clamp(8, 16)),
-            Constraint::Min(6),
-        ])
-        .split(columns[0]);
-        gpu_charts(frame, left[0], app, p);
-        super::panes::draw(frame, columns[1], 2, app, p, gpu_fields);
-        super::panes::draw(frame, left[1], 0, app, p, process_table);
+    let chart_height = if body_height >= process_min + 6 {
+        (body_height * 3 / 5)
+            .clamp(6, 24)
+            .min(body_height - process_min)
     } else {
-        let chart_height = if rows[1].height >= 14 { 4 } else { 0 };
-        let info_height = (rows[1].height.saturating_sub(chart_height) / 3).clamp(4, 8);
-        let body = Layout::vertical([
-            Constraint::Length(chart_height),
-            Constraint::Min(4),
-            Constraint::Length(info_height),
-        ])
-        .split(rows[1]);
-        if body[0].height > 0 {
-            gpu_charts(frame, body[0], app, p);
-        }
-        super::panes::draw(frame, body[2], 2, app, p, gpu_fields);
-        super::panes::draw(frame, body[1], 0, app, p, process_table);
+        0
+    };
+    let rows = Layout::vertical([
+        Constraint::Length(cards_height),
+        Constraint::Length(chart_height),
+        Constraint::Min(4),
+    ])
+    .split(area);
+    gpu_cards(frame, rows[0], app, p, card_height);
+    if rows[1].height > 0 {
+        gpu_charts(frame, rows[1], app, p);
     }
+    super::panes::draw(frame, rows[2], 0, app, p, process_table);
 }
-fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
-    let compact = area.height < 7;
-    let visible = if area.width < 100 {
-        1
-    } else {
-        (area.width / 58).clamp(1, 4) as usize
-    };
-    let start = app.selected_gpu.saturating_sub(visible - 1);
+fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_height: u16) {
+    let visible = (area.height / card_height).max(1) as usize;
+    let mut start = app
+        .gpu_card_offset
+        .min(app.snapshot.gpus.len().saturating_sub(visible));
+    if app.selected_gpu < start {
+        start = app.selected_gpu;
+    } else if app.selected_gpu >= start + visible {
+        start = app.selected_gpu + 1 - visible;
+    }
+    app.gpu_card_offset = start;
     let count = visible.min(app.snapshot.gpus.len() - start);
-    let tiles = Layout::horizontal(vec![Constraint::Ratio(1, count as u32); count])
-        .spacing(1)
-        .split(area);
+    let tiles = Layout::vertical(vec![Constraint::Length(card_height); count]).split(area);
     for (offset, tile) in tiles.iter().enumerate() {
         let index = start + offset;
         let gpu = &app.snapshot.gpus[index];
         let selected = index == app.selected_gpu;
         app.gpu_ranges.push((*tile, index));
+        let title = format!(
+            " {}GPU {} · {}{} ",
+            if selected { "▸ " } else { "" },
+            gpu.id,
+            gpu.name,
+            if selected && count < app.snapshot.gpus.len() {
+                format!(" · {}/{}", index + 1, app.snapshot.gpus.len())
+            } else {
+                String::new()
+            }
+        );
         let b = block(
-            format!(
-                " {}GPU {} · {} ",
-                if selected { "▸ " } else { "" },
-                gpu.id,
-                gpu.name
+            super::tags::elide(
+                &title,
+                tile.width.saturating_sub(if selected { 23 } else { 2 }),
             ),
             p,
             if selected { p.mint } else { p.muted },
@@ -187,64 +268,126 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
         .border_style(Style::new().fg(if selected { p.mint } else { p.border }));
         let inner = b.inner(*tile);
         frame.render_widget(b, *tile);
-        if inner.height == 1 {
+        if selected {
+            let info = Rect::new(tile.right() - 21, tile.y, 19, 1);
+            super::controls::nav_button(
+                frame,
+                info,
+                KeyCode::Char('I'),
+                "Device info",
+                false,
+                p,
+                p.selection,
+            );
+            app.controls.push((info, KeyCode::Char('I')));
+        }
+        if inner.height == 1 || inner.width < 74 {
             text(
                 frame,
                 inner,
-                format!(
-                    "GPU {} · VRAM {} / {}",
-                    optional(gpu.utilization, "%"),
-                    optional_bytes(gpu.memory_used),
-                    optional_bytes(gpu.memory_total)
-                ),
+                vec![
+                    Line::from(format!(
+                        "GPU {} · VRAM {} / {}",
+                        optional(gpu.utilization, "%"),
+                        optional_bytes(gpu.memory_used),
+                        optional_bytes(gpu.memory_total)
+                    )),
+                    Line::from(format!(
+                        "{} · {} · fan {}",
+                        gpu.temperature
+                            .map(|t| app.config.display.temperature(t as f64, 0))
+                            .unwrap_or_else(|| "—".into()),
+                        optional(gpu.power_watts.map(|v| format!("{v:.0}")), "W"),
+                        optional(gpu.fan, "%")
+                    )),
+                ],
                 p,
             );
             continue;
         }
-        let width = inner.width.saturating_sub(14) as usize;
+        let columns = Layout::horizontal(if inner.width >= 110 {
+            vec![
+                Constraint::Percentage(34),
+                Constraint::Percentage(36),
+                Constraint::Percentage(30),
+            ]
+        } else {
+            vec![Constraint::Percentage(50), Constraint::Percentage(50)]
+        })
+        .spacing(1)
+        .split(inner);
         let used = gpu
             .memory_used
             .zip(gpu.memory_total)
             .filter(|(_, t)| *t > 0)
             .map(|(u, t)| percent(u, t));
-        let mut lines = vec![
+        let load = vec![
             gpu.utilization
-                .map(|v| meter(" GPU", v as f64, width, p.mint, p))
+                .map(|v| {
+                    meter(
+                        " GPU",
+                        v as f64,
+                        columns[0].width.saturating_sub(14) as usize,
+                        p.mint,
+                        p,
+                    )
+                })
                 .unwrap_or_else(|| {
                     Line::styled(" GPU — · counter unavailable", Style::new().fg(p.muted))
                 }),
-            used.map(|v| meter("VRAM", v, width, p.purple, p))
-                .unwrap_or_else(|| {
-                    Line::styled("VRAM — · counter unavailable", Style::new().fg(p.muted))
-                }),
             Line::from(format!(
-                " {} / {} · {}",
-                optional_bytes(gpu.memory_used),
-                optional_bytes(gpu.memory_total),
-                gpu.performance_state.as_deref().unwrap_or("—")
-            )),
-        ];
-        if !compact {
-            lines.push(Line::from(format!(
-                " {} · {} / {} · fan {}",
+                " {} · {} / {}",
                 gpu.temperature
                     .map(|t| app.config.display.temperature(t as f64, 0))
                     .unwrap_or_else(|| "—".into()),
                 optional(gpu.power_watts.map(|v| format!("{v:.0}")), "W"),
                 optional(gpu.power_limit_watts.map(|v| format!("{v:.0}")), "W"),
-                optional(gpu.fan, "%")
-            )));
-            lines.push(Line::styled(
-                format!(
-                    " Core {} · MEM {} · {} processes",
-                    optional(gpu.clock_mhz, "MHz"),
-                    optional(gpu.memory_clock_mhz, "MHz"),
-                    gpu.processes.len()
-                ),
-                Style::new().fg(p.muted),
-            ));
+            )),
+        ];
+        let memory = vec![
+            used.map(|v| {
+                meter(
+                    "VRAM",
+                    v,
+                    columns[1].width.saturating_sub(14) as usize,
+                    p.purple,
+                    p,
+                )
+            })
+            .unwrap_or_else(|| {
+                Line::styled("VRAM — · counter unavailable", Style::new().fg(p.muted))
+            }),
+            Line::from(format!(
+                " {} / {}",
+                optional_bytes(gpu.memory_used),
+                optional_bytes(gpu.memory_total),
+            )),
+        ];
+        text(frame, columns[0], load, p);
+        text(frame, columns[1], memory, p);
+        if columns.len() == 3 {
+            text(
+                frame,
+                columns[2],
+                vec![
+                    Line::from(format!(
+                        "{} · fan {} · {} processes",
+                        gpu.performance_state.as_deref().unwrap_or("—"),
+                        optional(gpu.fan, "%"),
+                        gpu.processes.len()
+                    )),
+                    Line::styled(
+                        format!(
+                            "Core {} · MEM {}",
+                            optional(gpu.clock_mhz, "MHz"),
+                            optional(gpu.memory_clock_mhz, "MHz"),
+                        ),
+                        Style::new().fg(p.muted),
+                    ),
+                ],
+                p,
+            );
         }
-        text(frame, inner, lines, p);
     }
 }
 fn gpu_charts(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
@@ -378,7 +521,18 @@ fn gpu_charts(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
                 p,
             );
         } else {
-            let columns = if area.width >= 130 { 3 } else { 2 };
+            let columns = if area.width >= 150 {
+                4
+            } else if area.width >= 100 {
+                3
+            } else if area.width >= 70 {
+                2
+            } else {
+                1
+            };
+            // Fewer plots on short screens beats squeezing every curve into a line.
+            // The remaining counters stay available in the device fields panel.
+            plots.truncate(columns * (area.height as usize / 6).max(1));
             let rows_count = plots.len().div_ceil(columns);
             let plot_rows =
                 Layout::vertical(vec![Constraint::Ratio(1, rows_count as u32); rows_count])
