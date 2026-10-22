@@ -101,7 +101,7 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `F4`, `s` | Sort chooser, including reverse order; `P`/`M` sort by CPU/RAM |
 | `F5` | View, panel focus, chart window, zoom and display options |
 | `[`, `]` | Previous GPU (`[`) or next GPU (`]`); click Prev/Next on the Overview GPU card or use `F5` |
-| `Enter`, `d`, `F6` | Open detail pane; full details; contextual tools |
+| `Enter`, `d`, `F6` | Open/close detail pane; full details; contextual tools |
 | `F7`, `m`, `l` | Process output/workload logs; object tools; logs |
 | `,`, `.` | Seek backward/forward during replay |
 | `W`, `z/Z`, `-/+` | Chart time window; zoom; decrease/increase sampling interval (also click the top `-` / `+`) |
@@ -117,7 +117,7 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 
 Click or scroll over a table to focus it. Network and GPU keep both tables on one page, with independent filters, sorting and scrolling. Headers sort; right-click opens tools; double-click opens details. Inactive buttons keep the surrounding background, the current page has an accent outline, and filled highlights identify selected rows.
 
-Process selection starts empty. Click a row or press ↑/↓ to select; press Enter or double-click to open its detail pane. This also applies to connections, services and containers. Esc closes the pane before clearing selection; selecting another row closes it. Wheel scrolling moves the process viewport without changing the PID. Selection holds row order while values update; explicit sorting applies the new order. The detail pane shows CPU/RAM, attributed GPU/VRAM, I/O and histories starting at selection time. Exit, PID reuse or filtering clears selection. Scroll the pane with its mouse wheel or `Alt+↑/↓`, `Alt+PgUp/PgDn`, `Alt+Home/End`. Use `d` for full details, `F6` for tools, or `:` for all commands. The bottom action bar wraps on narrow terminals to keep resource actions visible.
+Process selection starts empty. Click a row or press ↑/↓ to select; press Enter or double-click to open its detail pane. Press Enter again to close the pane and keep the row selected. This also applies to connections, services and containers. Esc closes the pane before clearing selection; selecting another row closes it. Wheel scrolling moves the process viewport without changing the PID. Selection holds row order while values update; explicit sorting applies the new order. The detail pane shows CPU/RAM, attributed GPU/VRAM, I/O and histories starting at selection time. Exit, PID reuse or filtering clears selection. Scroll the pane with its mouse wheel or `Alt+↑/↓`, `Alt+PgUp/PgDn`, `Alt+Home/End`. Use `d` for full details, `F6` for tools, or `:` for all commands. The bottom action bar wraps on narrow terminals to keep resource actions visible.
 
 Filters update in place as you type. Enter/↓ apply; Esc restores the previous query. Editors support cursor movement, Home/End, deletion and `Ctrl+A/E/U/K/W`. Examples:
 

@@ -681,7 +681,14 @@ fn footer_buttons(
         if app.has_process_table() || matches!(app.view, View::Services | View::Containers) {
             items.push((K::F(7), "Logs"));
         }
-        items.push((K::Enter, "Details"));
+        items.push((
+            K::Enter,
+            if app.selection_open {
+                "Close"
+            } else {
+                "Details"
+            },
+        ));
         // Keep every resource action visible. Narrow terminals wrap instead of
         // silently dropping actions; extra global shortcuts use spare cells.
         items.push((K::F(10), "Quit"));

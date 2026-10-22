@@ -740,8 +740,14 @@ impl Input<'_> {
                 app.focus_panel(if app.gpu_section == 2 { 0 } else { 2 })
             }
             KeyCode::Enter | KeyCode::Char('d') => {
-                if key.code == KeyCode::Enter && app.open_selection() {
-                    return true;
+                if key.code == KeyCode::Enter {
+                    if app.selection_open {
+                        app.close_selection();
+                        return true;
+                    }
+                    if app.open_selection() {
+                        return true;
+                    }
                 }
                 inspect(app);
                 load_resource_detail(app, detail_tx.clone());
@@ -1755,7 +1761,7 @@ mod tests {
         });
     }
     #[test]
-    fn selecting_rows_requires_enter_to_open_details_and_escape_preserves_selection() {
+    fn enter_toggles_detail_panes_and_escape_preserves_selection() {
         use ratatui::{Terminal, backend::TestBackend};
         use rstop::{
             connections::Connection,
@@ -1814,6 +1820,18 @@ mod tests {
                 let snapshot = app.snapshot.clone();
                 app.ingest(snapshot);
                 assert!(app.selection_open, "{view:?}: refresh closed details");
+                press(input, app, KeyCode::Enter);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                assert!(
+                    !app.selection_open && app.process_detail_rect.is_empty(),
+                    "{view:?}: Enter did not close details"
+                );
+                assert!(app.has_row_selection());
+                assert_eq!(app.selected, selected);
+                assert!(app.detail.is_none() && app.main_menu.is_none());
+                press(input, app, KeyCode::Enter);
+                terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
+                assert!(app.selection_open && !app.process_detail_rect.is_empty());
                 press(input, app, KeyCode::Esc);
                 terminal.draw(|f| rstop::ui::draw(f, app)).unwrap();
                 assert!(!app.selection_open && app.process_detail_rect.is_empty());

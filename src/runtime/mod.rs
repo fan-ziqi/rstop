@@ -96,6 +96,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     None
                 };
                 let cpu_ready = Instant::now() + sysinfo::MINIMUM_CPU_UPDATE_INTERVAL;
+                let mut process_cpu_ready = None;
                 let mut recording_error = None::<String>;
                 while !STOP.load(Ordering::Relaxed) {
                     let began = Instant::now();
@@ -163,9 +164,15 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     ) {
                         break;
                     }
-                    // Publish immediately, then obtain the first CPU rate as soon as it is valid.
-                    let until = if began < cpu_ready && replay_data.is_none() {
-                        cpu_ready
+                    // Publish a baseline immediately, then warm up process CPU rates
+                    // before waiting a full refresh period.
+                    if replay_data.is_none() && needed.processes && process_cpu_ready.is_none() {
+                        process_cpu_ready =
+                            Some(Instant::now() + sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+                    }
+                    let ready = process_cpu_ready.unwrap_or(cpu_ready).max(cpu_ready);
+                    let until = if began < ready && replay_data.is_none() {
+                        ready
                     } else {
                         began + Duration::from_millis(config.interval_ms)
                     };

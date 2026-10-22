@@ -250,7 +250,7 @@ pub(super) fn draw(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
 
 fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut content: Content) {
     let b = block(format!(" {} · Selected ", content.title), p, p.blue).title_bottom(Line::styled(
-        " Wheel / Alt+↑↓ · [d] Full details · [Esc] Back ",
+        " Wheel / Alt+↑↓ · [d] Full details · [Enter/Esc] Close ",
         Style::new().fg(p.muted),
     ));
     let inner = b.inner(area);

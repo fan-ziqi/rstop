@@ -1,4 +1,4 @@
-//! Monotonic activation: opening a page starts its sources for the rest of the session.
+//! Basic processes are sampled from startup; optional page sources stay active once opened.
 use rstop::app::View;
 use std::sync::atomic::{AtomicU8, Ordering};
 const PROCESSES: u8 = 1;
@@ -20,7 +20,7 @@ pub(super) struct Needs {
 }
 impl Sources {
     pub fn new(full: bool) -> Self {
-        Self(AtomicU8::new(if full { ALL } else { 0 }))
+        Self(AtomicU8::new(if full { ALL } else { PROCESSES }))
     }
     pub fn activate(&self, view: View, process_table: bool) -> bool {
         let mut bits = match view {
@@ -52,11 +52,16 @@ impl Sources {
 mod tests {
     use super::*;
     #[test]
-    fn sources_stay_active_after_leaving_a_page_and_unopened_pages_stay_dormant() {
+    fn basic_processes_start_immediately_and_optional_sources_stay_active_once_opened() {
         let sources = Sources::new(false);
+        assert!(sources.needs().processes);
         sources.activate(View::Overview, false);
         assert!(!sources.needs().containers);
-        assert!(!sources.needs().processes);
+        assert!(sources.needs().processes);
+        assert!(!sources.needs().gpu_processes);
+        assert!(!sources.needs().extras);
+        assert!(sources.activate(View::Processes, true));
+        assert!(sources.needs().gpu_processes);
         sources.activate(View::Containers, false);
         sources.activate(View::Overview, false);
         assert!(sources.needs().containers);
