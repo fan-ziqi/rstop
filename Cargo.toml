@@ -1,6 +1,6 @@
 [package]
 name = "rstop"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.95"
 description = "A unified, GPU-aware local resource monitor for Linux, macOS and Windows"
@@ -8,7 +8,7 @@ authors = ["Ziqi Fan"]
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/fan-ziqi/rstop"
-homepage = "https://github.com/fan-ziqi/rstop"
+homepage = "https://fan-ziqi.github.io/rstop/"
 keywords = ["cli", "monitor", "gpu", "process", "terminal"]
 categories = ["command-line-utilities", "visualization"]
 include = ["src/**", "tests/**", "examples/**", "Cargo.toml", "Cargo.lock", "LICENSE", "NOTICE", "*.md", "packaging/**"]

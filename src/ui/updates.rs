@@ -10,7 +10,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     let area = dialogs::popup(frame.area(), 84, 12);
     app.popup_rect = area;
     frame.render_widget(Clear, area);
-    let border = block(" rstop 更新 ", p, p.mint).style(Style::new().bg(p.bg));
+    let border = block(" rstop update ", p, p.mint).style(Style::new().bg(p.bg));
     let inner = border.inner(area);
     frame.render_widget(border, area);
     let rows = Layout::vertical([
@@ -37,10 +37,10 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     );
     app.update_buttons.push((rows[1], 3));
     let (status, color) = match &notice.phase {
-        Phase::Available => ("发现新版本".into(), p.muted),
-        Phase::Installing => ("正在升级…".into(), p.mint),
+        Phase::Available => ("New version available".into(), p.muted),
+        Phase::Installing => ("Upgrading…".into(), p.mint),
         Phase::Installed(version) => (
-            format!("已升级到 {version}，重新启动 rstop 后生效。"),
+            format!("Updated to {version}. Restart rstop to use the new version."),
             p.mint,
         ),
         Phase::Failed(error) => (
@@ -62,17 +62,30 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
         return;
     }
     if matches!(notice.phase, Phase::Installed(_)) {
-        controls::nav_button(frame, rows[3], KeyCode::Enter, "继续监控", true, p, p.bg);
+        controls::nav_button(
+            frame,
+            rows[3],
+            KeyCode::Enter,
+            "Continue monitoring",
+            true,
+            p,
+            p.bg,
+        );
         app.update_buttons.push((rows[3], 1));
         return;
     }
     let buttons = if matches!(notice.phase, Phase::Failed(_)) {
-        vec![(KeyCode::Char('u'), "重试"), (KeyCode::Char('i'), "关闭")]
+        vec![(KeyCode::Char('u'), "Retry"), (KeyCode::Char('i'), "Close")]
     } else {
+        let (ignore, skip) = if area.width < 78 {
+            ("Ignore once", "Skip version")
+        } else {
+            ("Ignore this session", "Skip this version")
+        };
         vec![
-            (KeyCode::Char('u'), "升级"),
-            (KeyCode::Char('i'), "本次忽略"),
-            (KeyCode::Char('n'), "此版本不提醒"),
+            (KeyCode::Char('u'), "Upgrade"),
+            (KeyCode::Char('i'), ignore),
+            (KeyCode::Char('n'), skip),
         ]
     };
     let cells = Layout::horizontal(vec![

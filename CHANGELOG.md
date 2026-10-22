@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- English update notifications, progress, completion messages and action buttons.
+- Project website linked from the package metadata and README.
+
 ## 0.1.1
 
 - Quiet background update checks with a compact Release link dialog: upgrade by default, ignore for this session, or persistently skip one version. Checks do not cache release results or block monitoring; read-only/replay sessions remain offline.
