@@ -1,3 +1,5 @@
+![rstop — eight native resource views](docs/assets/rstop-demo.gif)
+
 # rstop
 
 [![Build](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml)
@@ -23,7 +25,9 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/fan-ziqi/rstop/releases/latest/download/rstop-installer.ps1 | iex"
 ```
 
-Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Use `rstop update --check` to check for updates, `rstop update` to install one, or rerun the installer. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases) are also available for manual installation.
+Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Normal monitoring checks GitHub in the background on launch and every 15 minutes, without caching results. A newer stable release opens a compact dialog with its Release link and **Upgrade** (default), **Ignore this session**, and **Skip this version**. Offline failures and up-to-date results stay silent. Read-only monitoring and replay do not check. Set `check_updates = false` to disable automatic checks.
+
+Use `rstop update --check` to check manually, `rstop update` to install an update, or rerun the installer. Updates require an installer-managed copy. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases) are also available for manual installation.
 
 Supported release targets: Linux x86-64/ARM64 with glibc 2.35+, macOS Intel/Apple Silicon, Windows x64/ARM64. NVIDIA monitoring uses the installed driver/NVML; the CUDA Toolkit is not required. Docker, Podman and inspection utilities are optional and are not installed automatically. See [platform limits](COVERAGE.md#known-gaps).
 

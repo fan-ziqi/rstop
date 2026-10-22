@@ -3,6 +3,7 @@ mod labels;
 mod menu;
 mod mouse;
 mod ros;
+mod updates;
 use super::inspect::{
     additional, inspect, inspect_process_extra, load_logs, load_resource_detail, open_report, task,
 };
@@ -21,6 +22,7 @@ pub(super) struct Input<'a> {
     pub interval: &'a AtomicU64,
     pub detail_tx: mpsc::Sender<(u64, String, String)>,
     pub action_tx: mpsc::Sender<String>,
+    pub update_tx: mpsc::Sender<rstop::updates::Event>,
     pub path: &'a PathBuf,
     pub read_only: bool,
     pub replay_index: &'a AtomicUsize,
@@ -37,6 +39,10 @@ impl Input<'_> {
         }
         if key.code == KeyCode::F(10) {
             return false;
+        }
+        if app.update_notice.is_some() {
+            self.update_key(app, key);
+            return true;
         }
         if self.modal(app, key) {
             return true;
@@ -791,16 +797,20 @@ mod tests {
         model::{Gpu, Process, Service, Snapshot},
     };
     pub(super) fn run(test: impl FnOnce(&mut Input<'_>, &mut App)) {
+        run_at(&PathBuf::from("/unused-rstop-test-config"), test);
+    }
+    fn run_at(path: &PathBuf, test: impl FnOnce(&mut Input<'_>, &mut App)) {
         let interval = AtomicU64::new(1000);
         let replay = AtomicUsize::new(0);
         let (detail_tx, _) = mpsc::channel();
         let (action_tx, _) = mpsc::channel();
-        let path = PathBuf::from("/unused-rstop-test-config");
+        let (update_tx, _) = mpsc::channel();
         let mut input = Input {
             interval: &interval,
             detail_tx,
             action_tx,
-            path: &path,
+            update_tx,
+            path,
             read_only: false,
             replay_index: &replay,
             replay_len: 0,
@@ -819,6 +829,93 @@ mod tests {
         });
         app.set_view(View::Processes);
         test(&mut input, &mut app);
+    }
+    fn update_release() -> rstop::updates::Release {
+        rstop::updates::Release {
+            tag_name: "v99.0.0".into(),
+            html_url: "https://github.com/fan-ziqi/rstop/releases/tag/v99.0.0".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn update_choices_keep_session_ignore_separate_from_persistent_version_ignore() {
+        let directory = std::env::temp_dir().join(format!(
+            "rstop-update-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let path = directory.join("config.toml");
+        run_at(&path, |input, app| {
+            app.update_notice = Some(rstop::updates::Notice::new(update_release()));
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 24)).unwrap();
+            terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+            assert_eq!(app.update_notice.as_ref().unwrap().selected, 0);
+            press(input, app, KeyCode::Char('i'));
+            assert!(app.update_notice.is_none());
+            assert!(app.config.ignored_update_version.is_none());
+            assert!(!path.exists());
+            app.update_notice = Some(rstop::updates::Notice::new(update_release()));
+            press(input, app, KeyCode::Tab);
+            press(input, app, KeyCode::Right);
+            press(input, app, KeyCode::Enter);
+            assert!(app.update_notice.is_none());
+            assert_eq!(
+                Config::load(&path)
+                    .unwrap()
+                    .ignored_update_version
+                    .as_deref(),
+                Some("99.0.0")
+            );
+            app.update_notice = Some(rstop::updates::Notice::new(update_release()));
+            input.read_only = true;
+            press(input, app, KeyCode::Char('u'));
+            assert!(matches!(
+                app.update_notice.as_ref().unwrap().phase,
+                rstop::updates::Phase::Failed(_)
+            ));
+        });
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn update_popup_buttons_fit_and_mouse_ignore_does_not_click_through() {
+        run(|input, app| {
+            for width in [60, 140] {
+                app.update_notice = Some(rstop::updates::Notice::new(update_release()));
+                let mut terminal =
+                    ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, 24)).unwrap();
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                assert_eq!(app.update_buttons.len(), 4);
+                for (rect, _) in &app.update_buttons {
+                    assert!(!rect.is_empty() && app.popup_rect.contains((rect.x, rect.y).into()));
+                }
+                let (rect, _) = app
+                    .update_buttons
+                    .iter()
+                    .find(|(_, index)| *index == 1)
+                    .unwrap();
+                input.mouse(
+                    app,
+                    crossterm::event::MouseEvent {
+                        kind: crossterm::event::MouseEventKind::Down(
+                            crossterm::event::MouseButton::Left,
+                        ),
+                        column: rect.x + rect.width / 2,
+                        row: rect.y + 1,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                let key = input.queued_key.take().unwrap();
+                input.key(app, key);
+                assert!(app.update_notice.is_none());
+                assert_eq!(app.view, View::Processes);
+            }
+        });
     }
     pub(super) fn press(input: &mut Input<'_>, app: &mut App, code: KeyCode) -> bool {
         let alive = input.key(app, KeyEvent::new(code, KeyModifiers::NONE));

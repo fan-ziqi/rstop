@@ -39,6 +39,8 @@ pub struct Config {
     pub record_max_mib: u64,
     pub probes: Vec<Probe>,
     pub display: Display,
+    pub check_updates: bool,
+    pub ignored_update_version: Option<String>,
     #[serde(skip, default = "config_exec_enabled")]
     pub config_exec: bool,
 }
@@ -76,6 +78,8 @@ impl Default for Config {
             record_max_mib: 64,
             probes: vec![],
             display: Display::default(),
+            check_updates: true,
+            ignored_update_version: None,
             config_exec: true,
         }
     }

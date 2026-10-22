@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Quiet background update checks with a compact Release link dialog: upgrade by default, ignore for this session, or persistently skip one version. Checks do not cache release results or block monitoring; read-only/replay sessions remain offline.
+- Shared receipt-bound update handling for the TUI and CLI, with network deadlines and explicit version selection.
+- Native installer, architecture, checksum, CLI and interactive terminal acceptance on all six release platforms before publication, followed by public-download and previous-version upgrade checks.
+- Dependency licenses generated once per release and reused by every archive.
+
 ## 0.1.0
 
 - Local CPU, memory, GPU, process, storage, network, container and service monitoring in one Rust TUI for Linux, macOS and Windows.

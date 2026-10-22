@@ -4,6 +4,26 @@ use rstop::app::App;
 use std::time::{Duration, Instant};
 impl Input<'_> {
     pub fn mouse(&mut self, app: &mut App, mouse: MouseEvent) {
+        if app.update_notice.is_some() {
+            if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+                if let Some((_, index)) = app
+                    .update_buttons
+                    .iter()
+                    .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
+                {
+                    let key = [
+                        KeyCode::Char('u'),
+                        KeyCode::Char('i'),
+                        KeyCode::Char('n'),
+                        KeyCode::Char('r'),
+                    ][*index];
+                    self.queued_key = Some(KeyEvent::new(key, KeyModifiers::NONE));
+                } else if !app.popup_rect.contains((mouse.column, mouse.row).into()) {
+                    self.update_key(app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+                }
+            }
+            return;
+        }
         let has_popup = app.ui_menu.is_some()
             || app.action_menu.is_some()
             || app.prompt.is_some()

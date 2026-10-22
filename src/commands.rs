@@ -1,5 +1,5 @@
 use crate::Args;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{CommandFactory, Subcommand, ValueEnum};
 use std::{io, path::PathBuf};
 
@@ -193,17 +193,7 @@ pub fn dispatch(args: &mut Args) -> Result<bool> {
 }
 
 fn update(check: bool) -> Result<()> {
-    let mut updater = axoupdater::AxoUpdater::new_for("rstop");
-    updater.load_receipt().context(
-        "No valid rstop install receipt. Install rstop with the official installer before using 'rstop update'",
-    )?;
-    anyhow::ensure!(
-        updater.check_receipt_is_for_this_executable()?,
-        "This executable is not the installer-managed copy of rstop. Update the installed copy or rerun the official installer"
-    );
-    if let Ok(token) = std::env::var("RSTOP_GITHUB_TOKEN") {
-        updater.set_github_token(&token);
-    }
+    let mut updater = rstop::updates::updater()?;
     if check {
         if updater.is_update_needed_sync()? {
             println!("An update is available. Run 'rstop update' to install it.");

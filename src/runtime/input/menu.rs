@@ -71,7 +71,7 @@ impl Input<'_> {
     }
 }
 
-fn open_url(url: &'static str, result: std::sync::mpsc::Sender<String>) -> std::io::Result<()> {
+pub(super) fn open_url(url: &str, result: std::sync::mpsc::Sender<String>) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("rundll32.exe");

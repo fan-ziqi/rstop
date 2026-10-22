@@ -10,6 +10,7 @@ mod processes;
 mod resources;
 mod selection;
 mod tags;
+mod updates;
 mod visuals;
 mod wordmark;
 mod workloads;
@@ -216,6 +217,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
     let area = frame.area();
     app.popup_rect = Rect::default();
+    app.update_buttons.clear();
     app.tab_ranges.clear();
     app.label_hits.clear();
     app.label_targets.clear();
@@ -228,7 +230,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let detail_area = dialogs::popup(area, 110, 32);
     app.detail_rows = detail_area.height.saturating_sub(2) as usize;
     app.detail_width = detail_area.width.saturating_sub(2);
-    let child_overlay = app.help
+    let child_overlay = app.update_notice.is_some()
+        || app.help
         || app.settings
         || app.detail.is_some()
         || app.ui_menu.is_some()
@@ -488,6 +491,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             " [y] Confirm · [Esc] Cancel ",
             p,
         );
+    }
+    if app.update_notice.is_some() {
+        updates::draw(frame, app, p);
     }
     if app.config.ascii || app.config.no_color {
         let buffer = frame.buffer_mut();

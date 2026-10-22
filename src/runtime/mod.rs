@@ -221,12 +221,19 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
     let mut first = true;
     let (detail_tx, detail_rx) = mpsc::channel();
     let (action_tx, action_rx) = mpsc::channel();
+    let (update_tx, update_rx) = mpsc::channel();
+    let update_worker = (config.check_updates && !args.read_only && !app.replay)
+        .then(|| rstop::updates::check_background(update_tx.clone()))
+        .flatten();
+    let mut pending_update = None;
+    let mut seen_updates = std::collections::HashSet::new();
     let mut dirty = true;
     let mut log_refresh = Instant::now();
     let mut input_state = input::Input {
         interval: &interval,
         detail_tx: detail_tx.clone(),
         action_tx: action_tx.clone(),
+        update_tx,
         path: &path,
         read_only: args.read_only,
         replay_index: &replay_index,
@@ -237,6 +244,44 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
     };
     let result = (|| -> Result<()> {
         while !STOP.load(Ordering::Relaxed) {
+            while let Ok(event) = update_rx.try_recv() {
+                match event {
+                    rstop::updates::Event::Available(release) => {
+                        if app.config.ignored_update_version.as_deref() != Some(release.version())
+                            && seen_updates.insert(release.version().to_owned())
+                        {
+                            pending_update = Some(release);
+                        }
+                    }
+                    rstop::updates::Event::Installed(result) => {
+                        if let Some(notice) = &mut app.update_notice {
+                            notice.phase = match result {
+                                Ok(version) => rstop::updates::Phase::Installed(version),
+                                Err(error) => rstop::updates::Phase::Failed(error),
+                            };
+                            notice.selected = 0;
+                        }
+                        dirty = true;
+                    }
+                }
+            }
+            if pending_update.is_some()
+                && app.update_notice.is_none()
+                && !app.editing_filter
+                && !app.help
+                && !app.settings
+                && app.detail.is_none()
+                && app.ui_menu.is_none()
+                && app.main_menu.is_none()
+                && app.prompt.is_none()
+                && app.action_menu.is_none()
+                && app.signal.is_none()
+            {
+                app.update_notice = pending_update.take().map(rstop::updates::Notice::new);
+                input_state.queued_key = None;
+                input_state.last_click = None;
+                dirty = true;
+            }
             if sources.activate(app.view, app.has_process_table()) {
                 sampler.thread().unpark();
                 discovery_worker.thread().unpark();
@@ -331,6 +376,9 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         Ok(())
     })();
     STOP.store(true, Ordering::Relaxed);
+    if let Some(worker) = update_worker {
+        worker.thread().unpark();
+    }
     sampler.thread().unpark();
     discovery_worker.thread().unpark();
     if let Some((_, worker)) = &connection_worker {

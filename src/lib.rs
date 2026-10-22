@@ -33,6 +33,7 @@ mod systemd;
 pub mod tags;
 pub mod taskstats;
 pub mod ui;
+pub mod updates;
 pub mod windows_inspect;
 
 use std::sync::atomic::AtomicBool;

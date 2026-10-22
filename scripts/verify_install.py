@@ -129,8 +129,6 @@ def verify(args, base, root):
     report["checks"]["archive_checksum_and_contents"] = True
     binary, env, command, receipt_path = install(root / "fresh", args.version, base)
     if not args.artifacts:
-        env = update_environment(env)
-        report["update_api_auth"] = "workflow_token" if os.environ.get("VERIFY_GITHUB_TOKEN") else "anonymous"
         latest = root / ("latest.ps1" if os.name == "nt" else "latest.sh")
         download(f"{RELEASES}/latest/download/rstop-installer.{latest.suffix[1:]}", latest)
         assert sha(latest) == sha(command[-1]), "Latest and versioned installers differ"
@@ -148,6 +146,8 @@ def verify(args, base, root):
     assert sha(binary) == info["binary_sha256"]
     report["checks"]["reinstall"] = True
     if not args.artifacts:
+        env = update_environment(env)
+        report["update_api_auth"] = "workflow_token" if os.environ.get("VERIFY_GITHUB_TOKEN") else "anonymous"
         for options in (["update", "--check"], ["update"]):
             assert "up to date" in run([binary, *options], env).lower()
             assert sha(binary) == info["binary_sha256"]

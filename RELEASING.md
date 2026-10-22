@@ -15,7 +15,7 @@ Dependency licenses are generated once in the tag's Linux gate from the complete
 
 Native build runners are Ubuntu 22.04 (both architectures), macOS 15 ARM/Intel, and Windows Server 2022 x64/Windows 11 ARM. A successful build does not establish real-device feature coverage; see [COVERAGE.md](COVERAGE.md).
 
-Release installers and the update library are provided by [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) and [axoupdater](https://github.com/axodotdev/axoupdater). Updates are explicitly requested with `rstop update` or checked with `rstop update --check`. Normal monitoring does not poll for updates. Source builds and manually moved executables cannot overwrite a separately installed copy through the update command.
+Release installers and the update library are provided by [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) and [axoupdater](https://github.com/axodotdev/axoupdater). Normal monitoring checks GitHub quietly on launch and every 15 minutes; results are not cached. Only a newer stable release opens the update dialog, with upgrade selected by default, a Release link, session ignore and a persistent version skip. The check has an eight-second deadline and is disabled in read-only/replay sessions or with `check_updates = false`. Installation starts only after the user chooses upgrade, pins the displayed tag and requires the current executable's install receipt. CLI checks/updates remain available with `rstop update --check` and `rstop update`. Source builds and manually moved executables cannot overwrite a separately installed copy.
 
 ## Publish
 
@@ -36,8 +36,8 @@ Release installers and the update library are provided by [cargo-dist](https://a
 4. Push the matching version tag, for example:
 
    ```sh
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
 
 Wait for all six archive jobs and release publication to succeed. Verify the remote branch/tag point to the intended commit. Installation URLs become usable after the release publishes; local fixture tests do not verify this public path. Publishing to crates.io is optional and is not part of the installer release flow.

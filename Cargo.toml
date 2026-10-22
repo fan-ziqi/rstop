@@ -1,6 +1,6 @@
 [package]
 name = "rstop"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.95"
 description = "A unified, GPU-aware local resource monitor for Linux, macOS and Windows"
@@ -30,6 +30,8 @@ starship-battery = "0.12"
 sysinfo = "0.39.6"
 toml = "0.9"
 regex = "1"
+semver = "1"
+reqwest = { version = "0.13", default-features = false, features = ["blocking"] }
 
 [profile.release]
 lto = "thin"
