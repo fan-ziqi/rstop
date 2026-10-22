@@ -86,6 +86,10 @@ fn parse(data: &[u8], protocol: &str) -> Option<Connection> {
 }
 
 pub(crate) fn collect() -> io::Result<Vec<Connection>> {
+    collect_with_budget(Duration::from_secs(1))
+}
+
+fn collect_with_budget(budget: Duration) -> io::Result<Vec<Connection>> {
     let raw = unsafe {
         libc::socket(
             libc::AF_NETLINK,
@@ -162,7 +166,7 @@ pub(crate) fn collect() -> io::Result<Vec<Connection>> {
             return Err(io::Error::last_os_error());
         }
         'response: loop {
-            if began.elapsed() > Duration::from_secs(1) {
+            if began.elapsed() >= budget {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "socket dump deadline",
@@ -278,10 +282,20 @@ mod tests {
     fn native_dump_finds_owned_listener() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap().to_string();
-        let rows = collect().unwrap();
+        // Hosted runners can deschedule this native integration test while the
+        // rest of the suite runs; keep its allowance separate from sampling.
+        let rows = collect_with_budget(Duration::from_secs(5)).unwrap();
         assert!(
             rows.iter()
                 .any(|r| r.local == address && r.state == "LISTEN")
+        );
+    }
+
+    #[test]
+    fn expired_budget_rejects_the_dump() {
+        assert_eq!(
+            collect_with_budget(Duration::ZERO).unwrap_err().kind(),
+            io::ErrorKind::TimedOut
         );
     }
 }

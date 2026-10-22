@@ -420,6 +420,12 @@ mod tests {
 
     #[test]
     fn local_socket_discovery_lists_stopped_containers_and_samples_only_running_ones() {
+        for _ in 0..32 {
+            local_socket_discovery_case();
+        }
+    }
+
+    fn local_socket_discovery_case() {
         use std::{fs, os::unix::net::UnixListener};
         struct OwnedSocket(std::path::PathBuf);
         impl Drop for OwnedSocket {

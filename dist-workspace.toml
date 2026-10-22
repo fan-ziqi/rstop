@@ -23,7 +23,7 @@ plan-jobs = ["./checks"]
 host-jobs = ["./install-checks"]
 github-release = "announce"
 post-announce-jobs = ["./install-public"]
-# distribution.py adds the native-installation gate omitted by cargo-dist 0.33.1.
+# distribution.py adds new-tag and native-installation gates omitted by cargo-dist 0.33.1.
 allow-dirty = ["ci"]
 github-build-setup = "../dist-setup.yml"
 source-tarball = false

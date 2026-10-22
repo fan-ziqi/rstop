@@ -17,7 +17,7 @@ SHELLS = {"bash": "rstop.bash", "zsh": "_rstop", "fish": "rstop.fish",
 
 
 def workflow(check=False):
-    """Keep cargo-dist's announce step gated on native installation acceptance."""
+    """Gate cargo-dist releases on new tags and native installation acceptance."""
     path = ROOT / ".github/workflows/release.yml"
     text = path.read_text(encoding="utf-8")
     before, announce = text.split("\n  announce:\n", 1)
@@ -26,10 +26,23 @@ def workflow(check=False):
     if check:
         assert guarded in announce, "Release publication must require all native installation checks"
     elif original in announce:
-        path.write_text(before + "\n  announce:\n" + announce.replace(original, guarded, 1), encoding="utf-8")
+        announce = announce.replace(original, guarded, 1)
     else:
         assert guarded in announce, "Unrecognized cargo-dist announce condition"
-    print("Release installation gate verified")
+    for job, first_step in (("plan", 'runs-on: "ubuntu-22.04"'),
+                            ("custom-checks", "uses: ./.github/workflows/checks.yml")):
+        original = f"\n  {job}:\n    {first_step}"
+        guarded = (f"\n  {job}:\n"
+                   "    if: ${{ github.event_name == 'pull_request' || github.event.created }}\n"
+                   f"    {first_step}")
+        if check:
+            assert guarded in before, f"Release {job} must run only for PRs or newly created tags"
+        elif guarded not in before:
+            assert original in before, f"Unrecognized cargo-dist {job} job"
+            before = before.replace(original, guarded, 1)
+    if not check:
+        path.write_text(before + "\n  announce:\n" + announce, encoding="utf-8")
+    print("Release trigger and installation gates verified")
 
 
 def run(binary, *args, env=None, check=True):
