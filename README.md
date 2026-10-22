@@ -1,4 +1,4 @@
-![rstop — eight native resource views](docs/assets/rstop-demo.gif)
+[![rstop — eight native resource views](docs/assets/rstop-demo.gif)](https://fan-ziqi.github.io/rstop/)
 
 # rstop
 
