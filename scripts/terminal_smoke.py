@@ -226,4 +226,5 @@ def windows(command, env, output):
 
 
 if __name__ == "__main__":
-    print(json.dumps(check(sys.argv[1:], os.environ.copy()), indent=2))
+    command = [os.path.abspath(sys.argv[1]), *sys.argv[2:]]
+    print(json.dumps(check(command, os.environ.copy()), indent=2))
