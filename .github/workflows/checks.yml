@@ -1,0 +1,46 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Main/PR checks cover all platforms; tags need only the Linux gate
+        # before the release workflow compiles all six platform archives.
+        os: ${{ fromJSON(startsWith(github.ref, 'refs/tags/') && '["ubuntu-22.04"]' || '["ubuntu-22.04","macos-15","windows-2022"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: '1.95.0'
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - run: cargo fmt --check
+        if: runner.os == 'Linux'
+      - run: cargo clippy --locked --all-targets -- -D warnings
+        if: runner.os == 'Linux'
+      - run: cargo test --locked
+      - name: Public CLI and generated documentation
+        shell: bash
+        run: |
+          binary=target/debug/rstop
+          if [[ "$RUNNER_OS" == Windows ]]; then binary+=.exe; fi
+          python scripts/distribution.py docs --binary "$binary" --check
+          python scripts/distribution.py smoke --binary "$binary"
+          python -m unittest discover -s scripts -p 'test_*.py'

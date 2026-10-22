@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>rstop third-party licenses</title>
+<style>body{max-width:70rem;margin:3rem auto;padding:0 1rem;font-family:system-ui}pre{white-space:pre-wrap}section{border-top:1px solid #aaa;margin-top:2rem}</style></head>
+<body><h1>rstop third-party licenses</h1>
+<p>Generated from the locked Cargo dependency graph. Dependencies retain their own licenses.</p>
+{{#each licenses}}
+<section><h2>{{name}}</h2><ul>
+{{#each used_by}}<li>{{crate.name}} {{crate.version}}{{#if crate.repository}} — <a href="{{crate.repository}}">source</a>{{/if}}</li>{{/each}}
+</ul><pre>{{text}}</pre></section>
+{{/each}}
+</body></html>

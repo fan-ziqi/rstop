@@ -1,0 +1,40 @@
+{
+  "rstop": {
+    "command": [
+      "target/release/rstop",
+      "--interval",
+      "1000",
+      "--read-only"
+    ],
+    "version": [
+      "target/release/rstop",
+      "--version"
+    ]
+  },
+  "rstop-selected": {
+    "command": [
+      "target/release/rstop",
+      "--interval",
+      "1000",
+      "--read-only"
+    ],
+    "version": [
+      "target/release/rstop",
+      "--version"
+    ],
+    "initial_keys": "2s\u001b[H\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r\u001b[H",
+    "input_delay_seconds": 3,
+    "expected_terminal_text": [
+      "Since selection"
+    ]
+  },
+  "btop": {
+    "command": [
+      "btop"
+    ],
+    "version": [
+      "btop",
+      "--version"
+    ]
+  }
+}

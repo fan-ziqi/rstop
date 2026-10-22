@@ -1,0 +1,120 @@
+{
+  "rstop": {
+    "command": [
+      "target/release/rstop",
+      "--interval",
+      "1000",
+      "--read-only"
+    ],
+    "version": [
+      "target/release/rstop",
+      "--version"
+    ]
+  },
+  "btop": {
+    "command": [
+      "btop"
+    ],
+    "version": [
+      "btop",
+      "--version"
+    ]
+  },
+  "htop": {
+    "command": [
+      "htop",
+      "--delay=10"
+    ],
+    "version": [
+      "htop",
+      "--version"
+    ]
+  },
+  "nvtop": {
+    "command": [
+      "nvtop",
+      "-d",
+      "10"
+    ],
+    "version": [
+      "nvtop",
+      "-v"
+    ]
+  },
+  "nvitop": {
+    "command": [
+      "nvitop",
+      "--interval",
+      "1",
+      "--readonly"
+    ],
+    "version": [
+      "nvitop",
+      "--version"
+    ]
+  },
+  "bottom": {
+    "command": [
+      "btm",
+      "--rate",
+      "1s",
+      "--read_only"
+    ],
+    "version": [
+      "btm",
+      "--version"
+    ]
+  },
+  "glances": {
+    "command": [
+      "glances",
+      "-t",
+      "1"
+    ],
+    "version": [
+      "glances",
+      "--version"
+    ]
+  },
+  "top": {
+    "command": [
+      "top",
+      "-d",
+      "1"
+    ],
+    "version": [
+      "top",
+      "-v"
+    ]
+  },
+  "rstop-gpu": {
+    "command": [
+      "target/release/rstop",
+      "--interval",
+      "1000",
+      "--read-only",
+      "--view",
+      "gpu"
+    ],
+    "version": [
+      "target/release/rstop",
+      "--version"
+    ]
+  },
+  "rstop-all-columns": {
+    "command": [
+      "target/release/rstop",
+      "--interval",
+      "1000",
+      "--read-only",
+      "--view",
+      "processes",
+      "--config",
+      "benchmarks/all-columns.toml"
+    ],
+    "version": [
+      "target/release/rstop",
+      "--version"
+    ]
+  }
+}

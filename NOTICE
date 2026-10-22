@@ -1,0 +1,8 @@
+rstop
+Copyright 2026 rstop contributors
+
+Licensed under the Apache License, Version 2.0.
+
+Reference projects and their separate licenses are documented in COVERAGE.md.
+Dependencies retain their own licenses. Binary distributions include the
+generated THIRD-PARTY-LICENSES.html file.

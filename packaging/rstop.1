@@ -1,0 +1,198 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rstop 1  "rstop 0.2.0"
+.SH NAME
+rstop \- One terminal. Your whole system. CPU, GPU, containers and services.
+.SH SYNOPSIS
+\fBrstop\fR [\fB\-i\fR|\fB\-\-interval\fR] [\fB\-\-theme\fR] [\fB\-\-view\fR] [\fB\-\-gpu\-panel\fR] [\fB\-\-config\fR] [\fB\-\-no\-gpu\fR] [\fB\-\-samples\fR] [\fB\-\-width\fR] [\fB\-\-height\fR] [\fB\-\-ascii\fR] [\fB\-\-no\-color\fR] [\fB\-\-threads\fR] [\fB\-\-process\-network\fR] [\fB\-\-read\-only\fR] [\fB\-\-full\-sampling\fR] [\fB\-\-layout\fR] [\fB\-\-min\-free\-mib\fR] [\fB\-\-min\-total\-mib\fR] [\fB\-\-max\-gpu\-utilization\fR] [\fB\-\-max\-memory\-utilization\fR] [\fB\-\-no\-config\-exec\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+One terminal. Your whole system. CPU, GPU, containers and services.
+.SH OPTIONS
+.TP
+\fB\-i\fR, \fB\-\-interval\fR \fI<INTERVAL>\fR
+Sampling interval in milliseconds (250..=10000)
+.TP
+\fB\-\-theme\fR \fI<THEME>\fR
+Color theme (also adjustable in F2 settings)
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+midnight
+.IP \(bu 2
+nord
+.IP \(bu 2
+ember
+.IP \(bu 2
+black
+.IP \(bu 2
+white
+.IP \(bu 2
+graphite
+.IP \(bu 2
+ocean
+.IP \(bu 2
+forest
+.IP \(bu 2
+sand
+.RE
+.TP
+\fB\-\-view\fR \fI<VIEW>\fR
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+overview
+.IP \(bu 2
+processes
+.IP \(bu 2
+gpu
+.IP \(bu 2
+storage
+.IP \(bu 2
+network
+.IP \(bu 2
+system
+.IP \(bu 2
+containers
+.IP \(bu 2
+services
+.IP \(bu 2
+explorer
+.IP \(bu 2
+history
+.IP \(bu 2
+events
+.RE
+.TP
+\fB\-\-gpu\-panel\fR \fI<GPU_PANEL>\fR [default: summary]
+Initial GPU panel focus; all panels remain on one page (history aliases summary)
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+summary
+.IP \(bu 2
+history
+.IP \(bu 2
+device
+.RE
+.TP
+\fB\-\-config\fR \fI<CONFIG>\fR
+Alternate configuration file
+.TP
+\fB\-\-no\-gpu\fR
+Disable GPU driver queries
+.TP
+\fB\-\-samples\fR \fI<SAMPLES>\fR
+Number of samples; emits newline\-delimited JSON, or fills SVG graph history
+.TP
+\fB\-\-width\fR \fI<WIDTH>\fR [default: 160]
+
+.TP
+\fB\-\-height\fR \fI<HEIGHT>\fR [default: 48]
+
+.TP
+\fB\-\-ascii\fR
+
+.TP
+\fB\-\-no\-color\fR
+
+.TP
+\fB\-\-threads\fR
+
+.TP
+\fB\-\-process\-network\fR
+
+.TP
+\fB\-\-read\-only\fR
+
+.TP
+\fB\-\-full\-sampling\fR
+Preload all pages and keep their background sampling active
+.TP
+\fB\-\-layout\fR \fI<LAYOUT>\fR
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+balanced
+.IP \(bu 2
+compute
+.IP \(bu 2
+storage
+.IP \(bu 2
+minimal
+.RE
+.TP
+\fB\-\-min\-free\-mib\fR \fI<MIN_FREE_MIB>\fR [default: 0]
+
+.TP
+\fB\-\-min\-total\-mib\fR \fI<MIN_TOTAL_MIB>\fR [default: 0]
+Minimum total VRAM for GPU selection
+.TP
+\fB\-\-max\-gpu\-utilization\fR \fI<MAX_GPU_UTILIZATION>\fR
+GPU selection ceiling; devices with unknown utilization are excluded
+.TP
+\fB\-\-max\-memory\-utilization\fR \fI<MAX_MEMORY_UTILIZATION>\fR
+GPU selection memory\-controller utilization ceiling
+.TP
+\fB\-\-no\-config\-exec\fR
+Disable configured probes and alert commands
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.SH SUBCOMMANDS
+.TP
+rstop\-monitor(1)
+Open the interactive system monitor (also the default command)
+.TP
+rstop\-snapshot(1)
+Print one JSON snapshot, including process command lines
+.TP
+rstop\-sample(1)
+Print newline\-delimited JSON samples (ten by default)
+.TP
+rstop\-record(1)
+Record telemetry while monitoring; \-\-samples selects headless recording
+.TP
+rstop\-replay(1)
+Replay a local recording; \-\-samples selects JSON output
+.TP
+rstop\-export(1)
+Export live telemetry or a recording to CSV or SVG
+.TP
+rstop\-gpu(1)
+Open the GPU view or select CUDA devices
+.TP
+rstop\-network(1)
+Open connection monitoring, test a target, or capture packets
+.TP
+rstop\-doctor(1)
+Explain resource problems, recent trends and useful next steps
+.TP
+rstop\-config(1)
+Print the configuration path or write current preferences
+.TP
+rstop\-completions(1)
+Generate shell completions without reading configuration
+.TP
+rstop\-man(1)
+Print the manual page without reading configuration
+.TP
+rstop\-update(1)
+Update this installer\-managed copy of rstop
+.TP
+rstop\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH VERSION
+v0.2.0

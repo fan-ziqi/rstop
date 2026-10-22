@@ -1,0 +1,101 @@
+{
+  "rstop-before": {
+    "command": [
+      "artifacts/perf-before",
+      "--interval",
+      "1000",
+      "--read-only"
+    ],
+    "version": [
+      "artifacts/perf-before",
+      "--version"
+    ]
+  },
+  "rstop-overview": {
+    "command": [
+      "artifacts/perf-final-v2",
+      "--interval",
+      "1000",
+      "--read-only"
+    ],
+    "version": [
+      "artifacts/perf-final-v2",
+      "--version"
+    ]
+  },
+  "rstop-processes": {
+    "command": [
+      "artifacts/perf-final-v2",
+      "--interval",
+      "1000",
+      "--read-only",
+      "--view",
+      "processes"
+    ],
+    "version": [
+      "artifacts/perf-final-v2",
+      "--version"
+    ]
+  },
+  "rstop-gpu": {
+    "command": [
+      "artifacts/perf-final-v2",
+      "--interval",
+      "1000",
+      "--read-only",
+      "--view",
+      "gpu"
+    ],
+    "version": [
+      "artifacts/perf-final-v2",
+      "--version"
+    ]
+  },
+  "rstop-full": {
+    "command": [
+      "artifacts/perf-final-v2",
+      "--interval",
+      "1000",
+      "--read-only",
+      "--full-sampling"
+    ],
+    "version": [
+      "artifacts/perf-final-v2",
+      "--version"
+    ]
+  },
+  "btop-1.4.7-no-gpu": {
+    "command": [
+      "artifacts/tools/btop-1.4.7",
+      "--update",
+      "1000"
+    ],
+    "version": [
+      "artifacts/tools/btop-1.4.7",
+      "--version"
+    ]
+  },
+  "nvitop": {
+    "command": [
+      "nvitop",
+      "--interval",
+      "1",
+      "--readonly"
+    ],
+    "version": [
+      "nvitop",
+      "--version"
+    ]
+  },
+  "top": {
+    "command": [
+      "top",
+      "-d",
+      "1"
+    ],
+    "version": [
+      "top",
+      "-v"
+    ]
+  }
+}

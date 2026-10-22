@@ -1,0 +1,129 @@
+# Features, fields, and validation scope
+
+Review date: 2026-10-22. rstop targets a local Linux/macOS/Windows TUI. Web services, remote monitoring, remote containers, and cloud exporters are outside scope. Implemented fields, successful builds, and real hardware validation are separate claims.
+
+## Local feature parity audit
+
+The 2026-10-22 audit is limited, by user choice, to the local terminal capabilities of btop, htop, nvtop, nvitop, bottom and Glances. Remote monitoring, web interfaces and cloud exporters are excluded. It checks **427 upstream configuration, column, plot, meter, plugin and backend entries** at the source revisions below. Aliases and related settings are separate entries; these counts are not a percentage of unique features or a claim of complete parity.
+
+| Product | Native | Partial | Missing | Out of scope |
+|---|---:|---:|---:|---:|
+| btop | 23 | 38 | 20 | 0 |
+| htop | 78 | 6 | 10 | 0 |
+| nvtop | 12 | 13 | 10 | 0 |
+| nvitop | 19 | 4 | 15 | 0 |
+| bottom | 31 | 60 | 48 | 0 |
+| Glances | 19 | 17 | 2 | 2 |
+
+Native means a native collector/state and an explicit local UI/CLI entry exist. Partial means some behavior, fields or control is absent. Generic probes, raw extended data and labels do not establish native feature parity. Hardware/permission limitations are recorded separately from missing implementations. The per-entry source location, status, counterpart and reason are retained in [tests/fixtures/feature-parity.json](tests/fixtures/feature-parity.json), including upstream source pins. The matrix is documentation data, not a runtime dependency.
+
+| Remaining area | Concrete gaps |
+|---|---|
+| btop | Custom core-temperature maps and alternate-provider coverage; mirrored lower CPU/GPU plots; subtree resource aggregation; per-row CPU histories; dead-process retention; independent manual RX/TX maxima; filesystem/fstab/ZFS policies; swap-as-disk; per-resource glyphs and full theme/preset controls; selected battery; clock/log controls |
+| htop | Per-update CTXT versus cumulative CTXT TOTAL; map-corrected library sizes; compressed cgroups/container columns; HugePage/Zram/Zswap/ZFS meters; host SELinux/OpenRC/PCP meters; configurable meter rendering |
+| nvtop | Vendor-complete AMD/Intel/Apple/Qualcomm backends, Ascend/MetaX/Enflame/Tenstorrent/TPU/Rockchip backends, effective-load/HVX/HMX graphs, monitored GPU sets and per-GPU chart options. Generic DRM availability does not close these gaps |
+| nvitop | Compute/graphics-only filtering, CUDA-visible-set inheritance, account-as-free selection heuristics, tolerance and min/max selection policies, output format/separators, GPU/VRAM-specific coloring thresholds, NVLink rate/history presentation |
+| bottom | Persistent disk/sensor/interface include/exclude rules, disk/sensor sorting/columns, temperature graphs, logarithmic disk graphs, cache/ZFS ARC accounting choices, full basic widget mode, focus/legend/scrollbar and per-component style controls |
+| Glances | Native AMP regex/count bounds/refresh/application statistics; normalized VM/Wi-Fi/SMART/RAID/IRQ panels and histories; background service/port health monitoring; vendor NPU/MPP monitoring; full runtime/platform coverage; wall-clock display |
+
+The matrix records remaining gaps rather than a claim of complete parity. Layout presets (`balanced`, `compute`, `storage`, `minimal`) change presentation; they do not change action permissions.
+
+## Information layout
+
+| Data | Main entry | Extended information |
+|---|---|---|
+| CPU | Overview/System: total/per-core activity, average frequency, CPU temperature and identifiable Linux coretemp per-core temperatures, 1/5/15-minute load, uptime; readable package power in Overview | Two columns of core histories; physical/logical cores, per-core frequencies, user/nice/system/idle/iowait/IRQ/softIRQ/steal/guest; scheduling, context switches, forks, swap I/O, RAPL, NUMA, IRQ. Temperature requires an identified CPU sensor; package power requires readable RAPL counters. Extensions are primarily Linux-specific |
+| Memory | Total RAM; separate Used, Available, Cached and Free histories and percentages; swap | Free is collected separately from available RAM; missing cached/free counters (including older recordings) remain unknown. Linux meminfo, page/VM counters; Linux kB is not confused with container decimal kB |
+| Processes | CPU, RSS, user, PID, GPU, reads/writes, command | 90 selectable columns: PSS/USS/swap, faults, threads, priority, CPU placement, TGID/session/terminal, CPU time, I/O, OOM, cgroup/autogroup, delays. Details expose collected and on-demand fields; unsupported/denied values stay unknown |
+| Workload labels | Inline labels on processes, socket owners, services and containers; `tag:` filters; click detail labels / `Y` for contextual actions | Local executable/entry-point/resource evidence; inferred intent marked `?`. Ownership uses unique service MainPID/same-program ancestry or exact sampled container cgroups. Menus freeze target identities; replay omits live actions. Unknown programs remain visible; ports, GPU allocation and image names do not establish application health or activity |
+| NVIDIA software | Fixed GPU header | Driver, CUDA Driver API, NVML. CUDA values describe driver support, not installed Toolkit detection |
+| GPU device | Summary cards, up to eight chart groups, related processes and device fields together | Independent process/device-table focus, filtering and scrolling; device fields include readable UUID, VBIOS, architecture, brand, PCI/display/persistence/compute modes, ECC, BAR1, PCIe, clocks, throttling |
+| GPU processes | Selected-device PID, GPU-MEM, SM%, GMBW%, CPU%, RAM%, elapsed, type, command | Encoding/decoding, environment/files, device selection. Compute/graphics PIDs are deduplicated; device values do not mix multi-device totals. Missing WDDM/engine data remains unknown |
+| Storage | Filesystem capacity, throughput, busy%, IOPS, await, queues | Mount/type/available/read-only/removable/inodes; readable SMART, RAID, and bounded folder scans and inode/deleted-open checks within Storage |
+| Network | Connections/process owners/state/TCP rates/RTT, interfaces, traffic history; Overview download/upload speed, session peak and total bytes | Overview aggregates visible interfaces, with byte/s and bit/s rates when space permits. Peaks survive history eviction and respect loopback visibility. Linux socket diagnostics with /proc + ss fallback; Windows netstat/macOS lsof listings without byte counters. Target DNS/TCP/TLS/HTTP checks; route/DNS inspection; guided bounded Linux/macOS tcpdump PCAP capture/read. Missing permissions/counters remain explicit |
+| System | Temperature, batteries, PSI | Battery health/energy/voltage/temperature/time/cycles; PSI some/full 10/60/300-second averages and totals; discoverable hwmon fans/voltages |
+| Containers | Local Docker/Podman, including stopped containers | CPU, memory/limit/ratio, PIDs, cumulative network/block I/O, image/command/creation/state/ports, inspect/top/diff, logs, management. Selected-container CPU/memory histories are embedded in the page; network/block I/O rates use two successive inventory observations and actual elapsed time; first/missing/reset counters stay unavailable |
+| Services | systemd system/user, user launchd, Windows SCM | State, PID, CPU, memory, tasks, logs, configuration, dependencies, management. Linux CPU follows the main PID; RAM prefers cgroups. Windows shared-process resource values can repeat and must not be summed as independent quotas |
+| Other components | Contextual `O` details / System | libvirt, LXC, local Kubernetes, Ascend/sysfs accelerators, configured local JSON/text probes; visibility depends on available commands and permissions |
+
+## Interaction and operations
+
+- Rounded navigation buttons and the common bottom action bar use bold `[key] Action` hints. F3 filters, F4 sorts (including reverse), F5 opens View options, F6 opens contextual tools, Enter inspects, F8 pauses and F10 quits. Network/GPU tables stay on one page; click or scroll over a table to focus it, or choose focus in F5. Each table retains independent filter/selection/scroll state; narrow terminals retain filter/sort/tools/quit. Status messages do not displace controls; compact buttons below 28 rows. Inactive controls keep the surrounding background, current-page outlines use the accent, and dialogs dim the background. Drawing and hit testing use the same cell regions. Inline filters never move rows; Enter/Down apply, Esc restores the previous query, Del clears. Filters support regex, conditions, numbers, OR, user/GPU constraints. Services/containers support filtering, sorting, and direct CPU/RAM keys. Menus expose action keys and support scrolling and first/last navigation. Mouse support includes navigation, rows, headers, menus, right-click tools, double-click details, and scrolling.
+- Process trees, collapse, ancestor context, stable identity tracking, user/kernel threads, subtree marking, group signals, nice/affinity, locks, traces/backtraces, environments/files. Tools depend on platform, installation, and existing permissions.
+- Process selection is optional and binds PID plus start time. Empty-space clicks/Esc clear it; wheel scrolling does not change it. Selected rows hold their sibling order while live values update. Exit, reuse, and filtering clear selection without choosing a neighbor. The resource pane uses sampled CPU/RAM and attributed per-process GPU/VRAM/SM/bandwidth/codec counters; only the current target has bounded histories, starting at selection time. Wide and compact layouts share the table's actual hit regions.
+- GPU shows available load/VRAM/engine/power/temperature/PCIe plots, process rows and device information on one page. Small terminals reduce plot detail and stack both tables. Legacy history selection focuses processes; it no longer hides other panels. Unsupported per-process utilization stays unknown and is never replaced with whole-device utilization.
+- Linux service actions include start/stop/restart/reload, enable/disable, mask/unmask, reset-failed, daemon-reload, configuration, forward/reverse dependencies. SCM and launchctl use their own platform-specific operations.
+- Containers support start/stop/restart, pause/unpause, kill, and removal of stopped containers; no forced removal of running containers or volumes. Logs support tail limits, following, filters, pagination, and first/last navigation.
+- Process output: Linux regular stdout/stderr files, cgroup service/container ownership, start/boot-bounded PID journal; macOS lsof files; Windows associated SCM events and manual files. Following defaults to three seconds; scrolling pauses it. Each file tail is bounded to 1 MiB. Pipes/terminals are not consumed, unsaved history is not recovered, and managed launch/capture is not implemented. Logs are excluded from telemetry.
+- Actions freeze identity and complete arguments before confirmation. PID/start time are checked; Linux signals prefer pidfd. Read-only/replay modes reject state changes and no automatic elevation occurs.
+- Themes/colors, nested layouts, column selection/windowing, ASCII/no-color output, pause, sampling/history controls, sustained alerts/recovery, optional local alert commands, JSON/JSONL/CSV/SVG, bounded recording, and local replay are implemented.
+- Network shows interfaces, traffic history and connections together. Small terminals keep both independently scrollable tables visible. Connection tables separate process names and PIDs. Connections provide 18 sort fields; interfaces provide 17. `F4` opens the chooser (including reverse order; `s` remains an alias) and column headers select/toggle sorting. Numeric counters use raw values, unknowns stay last in both directions, and selecting a hidden metric exposes that column. Explicit object selection survives resorting.
+- Resource diagnosis (`R`) combines current threshold checks, evidence, next steps, relevant retained trends and alert/recovery records. `O` opens contextual extended details. Explorer/History/Events are no longer separate navigation pages; legacy view arguments map to System/Overview.
+- Public command entry points share the `rstop` executable: `rstop snapshot`, `rstop sample`, `rstop record`, `rstop replay`, `rstop export`, `rstop gpu`, `rstop network`, `rstop doctor`, `rstop config`, `rstop completions`, `rstop man`, and `rstop update`. The monitor is the default command. Legacy action flags remain hidden for existing scripts.
+
+## Charts and resource use
+
+Charts share `ui/charts.rs`. Bounded raw history is projected onto fixed half-cell columns using elapsed sampler timestamps: right entry, left cropping, no startup stretching or floating-point repositioning on scroll. `W` selects a time window, `z`/`Z` zoom, and sampling rate is independent of the chosen span. The menu reports actual cached time; retention is capped at 3,600 samples. Wider windows preserve peaks in aligned buckets; NaN and long collection gaps break lines. `All` retains the sample-aligned mode. Throughput scales use 1/2/5 steps without smoothing away raw peaks.
+
+Fast sampling is separate from slow inspection. Connection/DRM ownership shares a bounded FD scan. Extra fields are enabled by selected columns and expensive reads are cached for five seconds. TASKSTATS has a budget/backoff and does not change kernel settings. Helper commands have time/output/process-lifetime bounds. Measured overhead and comparison conditions are in [BENCHMARK.md](BENCHMARK.md).
+
+Optional page sources activate on first use and remain active after navigation; hidden charts continue receiving timestamped samples. Host/GPU overview history is continuous from startup. Activated connections update every second; container/service/extra discovery waits five seconds between scans. `--full-sampling`, recording and headless collection enable everything. Linux uses cached procfs descriptors, socket diagnostics and local systemd D-Bus; Unix Docker uses the local Engine socket. Existing collectors/CLI fallbacks remain available when native access fails. NVIDIA capability metadata is cached for five seconds; supported dynamic metrics continue at the sample interval after activation.
+
+## Workload recognition and shortcuts
+
+Exact executable identities, explicit runtime entry points/subcommands, ownership and sampled counters provide labels. The catalogue covers the following common uses; software identity is not proof of current application activity. Image/unit names remain inferred (`?`). Unknown and private programs remain visible.
+
+| Common use | Recognized roles and examples | Contextual inspections |
+|---|---|---|
+| Web and data services | Web/proxy, database/client, cache, search; Nginx, PostgreSQL, Redis/Valkey, Elasticsearch, Qdrant | Connections, sampled endpoint check, logs, files, memory/limits, storage |
+| Messaging and robotics | Brokers, DDS, Zenoh, ROS, simulation; Mosquitto, NATS, Fast DDS tools, ROS 2, Gazebo | Connections, logs, communication environment, loaded runtime components. ROS label: searchable topics/nodes/services, info/QoS, bounded echo/hz, message definitions and parameter reads using the selected process's environment (Linux; ROS CLI required) |
+| AI and scientific work | Model serving, explicit training hints, distributed launchers, notebooks, scientific tools; vLLM, Ollama serve, MPI, Jupyter, Julia | Observed GPU, memory/limits, CPU scheduling, files, storage; GPU use alone never implies training |
+| Development and delivery | Build/test/lint, packages, version control, debugger/profiler, language servers, editors, CI, automation, cloud CLI, job workers | Output, files, runtime components, CPU/memory, storage, connections as relevant |
+| Containers and virtual machines | Docker/Podman/containerd, Kubernetes tooling, QEMU/VMware/WSL | Local related members, connections, storage, logs, owning service/container when attribution exists |
+| Remote access and networking | SSH/RDP/VNC, VPN/tunnels, proxies, DNS, network/download tools | Connections, endpoint checks, host routes/DNS, files; no automatic remote-cluster access |
+| File movement and storage | Sync, backup, sharing/object storage, archives, indexing; rsync, rclone, restic, Samba, MinIO, zstd | Files, host storage/IO, connections, CPU/memory as relevant |
+| Media and graphics | Conversion, playback, capture/streaming, 3D/render; FFmpeg, mpv, OBS, Blender | Files, storage, CPU/memory, observed GPU, connections as relevant |
+| Everyday desktop | Browsers, calls/chat, office/PDF, games/launchers, desktop/audio, terminals | Related processes, output, files, memory/runtime and connections as relevant |
+| Background work | Monitoring/log agents, scheduled jobs, security scanners | Logs, files, CPU/memory, storage and connections as relevant |
+| Measured resource/state | GPU activity/allocation, CPU >=1 core, RSS >=1 GiB, disk/network IO, listening/connecting/queued sockets, failed services, restarting/unhealthy containers, stopped/zombie processes | Relevant sampled device/object, logs, resource inspections; thresholds/states do not diagnose faults |
+
+Shortcuts are offered only when a target/platform supports them. Live inspections are disabled in replay. No classification reads environments, loads application SDKs or starts network probes. Right-aligned badges share one width/hit-test plan; table labels are display-only, and `+N` counts overflow. Select a row to see every label; detail badges open actions for the clicked label, and `Y` opens all label actions. Selection panes wrap complete command/labels/fields and scroll independently; compact windows use a lower preview.
+
+## Known gaps
+
+- Workload purpose hints do not automatically sample middleware graphs/QoS, HTTP request statistics, database internals or model-level throughput. ROS graph/QoS and topic samples are explicit CLI checks; other middleware needs application telemetry/custom probes. Embedded middleware can appear under an arbitrary executable name; Linux loaded-library evidence helps inspection but does not prove active use. ROS graph objects are scoped by the process environment, not attributed to its PID; multiple nodes may share a process, and runtime initialization may override environment defaults. Cross-container/namespace ROS queries are refused. Container process attribution is Linux-only, bounded and cached; unavailable members/connections do not establish absence. RSS sums can double-count shared pages.
+
+- The local parity audit above records the remaining reference-product gaps. A native field or generic probe does not close a missing workflow, configuration option, vendor backend or dedicated view.
+- Intel PMU, vendor-specific GPU/NPU SDKs, all media engines, sensors, SMART/RAID controllers, and driver combinations are not fully covered. MIG/NVLink/ECC parsing exists but has no acceptance evidence on this host.
+- macOS currently enumerates user launchd; system domains, plist discovery, and associated configuration/load behavior remain incomplete. Windows/macOS service/GPU/disk/process hardware features require native-machine acceptance beyond generic CI.
+- Native CI checks Linux/macOS/Windows; release jobs build all six supported targets. Build/test success establishes compatibility, not hardware feature coverage. Podman, libvirt/LXC, local Kubernetes, Ascend, and optional bpftrace permission paths have not all been exercised.
+
+Local test counts, executable hashes and performance acceptance are recorded in [BENCHMARK.md](BENCHMARK.md#implementation-and-validation). The local benchmark skips live container management when no engine is running. CPU sensor mapping uses a multi-package fixture; I/O priority uses an owned child. Autogroup writes and absent vendor hardware have no physical acceptance claim.
+
+## Reference projects
+
+The reference audit inspects documented settings, columns, meters, plots, plugin/backend inventories and selected implementations at these pinned revisions. These are behavioral/feature references, not a claim that all upstream tests were executed. None is a declared Cargo dependency. Their licenses remain separate from rstop's Apache-2.0 license; copied/adapted code would require its own provenance and applicable notices/terms.
+
+| Project and revision | License at the reviewed revision | Reviewed files and reference scope |
+|---|---|---|
+| [btop, 89fcdf4](https://github.com/aristocratos/btop/tree/89fcdf4094e89f8ac215ee6c3ee74aeffb618e86) | [Apache-2.0](https://github.com/aristocratos/btop/blob/89fcdf4094e89f8ac215ee6c3ee74aeffb618e86/LICENSE) | README, `src/linux/btop_collect.cpp`, `src/btop_draw.cpp`: CPU/disk sampling, GPU capabilities, half-cell grids, sample placement, refresh phase |
+| [nvitop, 1d19867](https://github.com/XuehaiPan/nvitop/tree/1d19867a25a84c882cefd3b1fd3a941595de2380) | [Apache-2.0 for API/selection](https://github.com/XuehaiPan/nvitop/blob/1d19867a25a84c882cefd3b1fd3a941595de2380/LICENSE); [GPL-3.0 for CLI/TUI](https://github.com/XuehaiPan/nvitop/blob/1d19867a25a84c882cefd3b1fd3a941595de2380/COPYING); [scope](https://github.com/XuehaiPan/nvitop/blob/1d19867a25a84c882cefd3b1fd3a941595de2380/README.md#license) | README, `nvitop/api/device.py`, `nvitop/select.py`, local 1.7.1 output: driver/CUDA, device/process fields, unknown values, MIG/NVLink, selection |
+| [htop, 394b4a3](https://github.com/htop-dev/htop/tree/394b4a3fc0df593a00be452a1862057b88b4eaf7) | [GPL-2.0-or-later](https://github.com/htop-dev/htop/blob/394b4a3fc0df593a00be452a1862057b88b4eaf7/COPYING); source headers specify GPLv2+ | `htop.1.in`, `linux/LinuxProcessTable.c`: process columns, threads, trees, sorting, group signals, priority/affinity |
+| [nvtop, 71094a9](https://github.com/Syllo/nvtop/tree/71094a9f7dfbfe7cbe9faebfdf055e580a034283) | [GPL-3.0-or-later](https://github.com/Syllo/nvtop/blob/71094a9f7dfbfe7cbe9faebfdf055e580a034283/COPYING); source headers allow later versions | README, NVIDIA/AMDGPU extractors: device support, PID deduplication, engine timestamps, fdinfo |
+| [bottom, 7d65d62](https://github.com/ClementTsang/bottom/tree/7d65d62c8310f592727e6a142007f761504c2c8b) | [MIT](https://github.com/ClementTsang/bottom/blob/7d65d62c8310f592727e6a142007f761504c2c8b/LICENSE) | Default config, `src/canvas/widgets/cpu_graph.rs`, `network_graph.rs`: component boundaries, histories, legends, scales, zoom |
+| [Glances, acee335](https://github.com/nicolargo/glances/tree/acee335ad65ae1fddf1f3bea9c2cac16256e0da2) | [LGPL version 3](https://github.com/nicolargo/glances/blob/acee335ad65ae1fddf1f3bea9c2cac16256e0da2/COPYING) | README, installed 4.5.8 `containers/engines/docker.py`, official docs: system components, container rates versus totals, plugins, local output scope |
+
+Additional primary references: [NVML system queries](https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlSystemQueries.html), [Docker stats cache/PIDs definitions](https://docs.docker.com/reference/cli/docker/container/stats/), [Linux TASKSTATS](https://www.kernel.org/doc/html/latest/accounting/taskstats.html), and [delay accounting](https://www.kernel.org/doc/html/latest/accounting/delay-accounting.html).
+
+Distribution design was compared with [bottom](https://github.com/ClementTsang/bottom#installation), [ripgrep](https://github.com/BurntSushi/ripgrep#installation), [Starship](https://starship.rs/guide/), and [uv](https://docs.astral.sh/uv/getting-started/installation/). rstop deliberately exposes one installer-based path and one executable with subcommands. [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) generates release/install artifacts; [axoupdater](https://github.com/axodotdev/axoupdater) implements the explicitly invoked update command.
+
+## Recorded feature acceptance
+
+The Linux feature-validation run used real NVIDIA/AMD, Docker, and systemd data. PTY checks covered views, GPU panels/fields, columns, keyboard/mouse menus, sorting/filtering, details, management-preview cancellation, resizing, and terminal restoration. Grid tests checked translation of existing geometry at startup/full-window scrolling; projection tests checked compression phase, peaks, and gaps.
+
+Output tests used owned processes/files for append/truncate/replace/delete behavior, byte limits, PID identity, and non-consumption of pipes. PTY checks exercised button edge/middle/gap hit regions and log following/pause/filter/file selection. Process-control tests use owned child processes. The ignored service test creates/restarts/reads/stops only a dedicated transient user service. Packaging/CLI checks are documented in [RELEASING.md](RELEASING.md); passing them does not establish hardware feature acceptance.
+
+
+Network/operations validation on 2026-10-22 includes native owned loopback listener/owner collection, TCP counter delta/reset/cookie parsing, IPv4/IPv6 and macOS/Windows parser fixtures, exact port/PID filters, scoped diagnostic/alert recovery, bounded folder scans, private no-overwrite capture output, helper timeout cleanup, confirmation/read-only/replay gating, offline doctor CLI, and rendering at 60×18 through 160×48. Synthetic capture-helper tests establish lifecycle/file handling, not real capture privileges. macOS/Windows network behavior requires native-machine acceptance; Windows packet capture is not implemented. Performance measurements identify their exact collector revision in [BENCHMARK.md](BENCHMARK.md).
+
+A separately authorized elevated loopback test captured 400 packets from an owned local HTTP listener into a 38,424-byte mode-0600 PCAP and successfully decoded its header preview. The unprivileged permission-denied path removed its empty output. This establishes local Linux tcpdump capture/read behavior; it does not validate other interfaces, Windows capture, encrypted payload inspection, or Wireshark stream analysis.

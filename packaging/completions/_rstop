@@ -1,0 +1,1397 @@
+#compdef rstop
+
+autoload -U is-at-least
+
+_rstop() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_rstop_commands" \
+"*::: :->rstop" \
+&& ret=0
+    case $state in
+    (rstop)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-command-$line[1]:"
+        case $line[1] in
+            (monitor)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(snapshot)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(sample)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(record)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':file:_files' \
+&& ret=0
+;;
+(replay)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':file:_files' \
+&& ret=0
+;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+'--input=[]:INPUT:_files' \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':format:(csv svg)' \
+':output:_files' \
+&& ret=0
+;;
+(gpu)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_rstop__subcmd__gpu_commands" \
+"*::: :->gpu" \
+&& ret=0
+
+    case $state in
+    (gpu)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-gpu-command-$line[1]:"
+        case $line[1] in
+            (select)
+_arguments "${_arguments_options[@]}" : \
+'--count=[]:COUNT:_default' \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__gpu__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-gpu-help-command-$line[1]:"
+        case $line[1] in
+            (select)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(network)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_rstop__subcmd__network_commands" \
+"*::: :->network" \
+&& ret=0
+
+    case $state in
+    (network)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-network-command-$line[1]:"
+        case $line[1] in
+            (connections)
+_arguments "${_arguments_options[@]}" : \
+'--filter=[AND terms\: port\:443 process\:python state\:LISTEN pid\:42 !proto\:udp]:FILTER:_default' \
+'--sort=[Choose a network field; missing values always sort last]:SORT:(traffic process state remote pid protocol local download upload received sent rtt receive-queue send-queue retransmits total-bytes local-port remote-port)' \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--json[]' \
+'--reverse[Reverse the chosen field'\''s default direction]' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':target:_default' \
+&& ret=0
+;;
+(capture)
+_arguments "${_arguments_options[@]}" : \
+'--interface=[]:INTERFACE:_default' \
+'--filter=[]:FILTER:_default' \
+'--seconds=[]:SECONDS:_default' \
+'--packets=[]:PACKETS:_default' \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':output:_files' \
+&& ret=0
+;;
+(read)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':file:_files' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__network__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-network-help-command-$line[1]:"
+        case $line[1] in
+            (connections)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(capture)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(read)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'--input=[Diagnose an existing recording without inspecting this machine]:INPUT:_files' \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--json[Print structured findings and the explanation as JSON]' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(config)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_rstop__subcmd__config_commands" \
+"*::: :->config" \
+&& ret=0
+
+    case $state in
+    (config)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-config-command-$line[1]:"
+        case $line[1] in
+            (path)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(write)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__config__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-config-help-command-$line[1]:"
+        case $line[1] in
+            (path)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(write)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':shell:(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(man)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(update)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--interval=[Sampling interval in milliseconds (250..=10000)]:INTERVAL:_default' \
+'--theme=[Color theme (also adjustable in F2 settings)]:THEME:(midnight nord ember black white graphite ocean forest sand)' \
+'--view=[]:VIEW:(overview processes gpu storage network system containers services explorer history events)' \
+'--gpu-panel=[Initial GPU panel focus; all panels remain on one page (history aliases summary)]:GPU_PANEL:(summary history device)' \
+'--config=[Alternate configuration file]:CONFIG:_files' \
+'--samples=[Number of samples; emits newline-delimited JSON, or fills SVG graph history]:SAMPLES:_default' \
+'--export-svg=[Render real collected data to an SVG, without opening a terminal]:EXPORT_SVG:_files' \
+'--width=[]:WIDTH:_default' \
+'--height=[]:HEIGHT:_default' \
+'--record=[]:RECORD:_files' \
+'--csv=[]:CSV:_files' \
+'--replay=[]:REPLAY:_files' \
+'--layout=[]:LAYOUT:(balanced compute storage minimal)' \
+'--select-gpu=[Print CUDA_VISIBLE_DEVICES for N least busy devices meeting the free-memory limit]:SELECT_GPU:_default' \
+'--min-free-mib=[]:MIN_FREE_MIB:_default' \
+'--min-total-mib=[Minimum total VRAM for GPU selection]:MIN_TOTAL_MIB:_default' \
+'--max-gpu-utilization=[GPU selection ceiling; devices with unknown utilization are excluded]:MAX_GPU_UTILIZATION:_default' \
+'--max-memory-utilization=[GPU selection memory-controller utilization ceiling]:MAX_MEMORY_UTILIZATION:_default' \
+'--check[Check availability without installing]' \
+'--no-gpu[Disable GPU driver queries]' \
+'--snapshot[Print a JSON snapshot, then exit (includes process commands)]' \
+'--write-config[Write preferences to the configuration file, then exit]' \
+'--ascii[]' \
+'--no-color[]' \
+'--threads[]' \
+'--process-network[]' \
+'--read-only[]' \
+'--full-sampling[Preload all pages and keep their background sampling active]' \
+'--no-config-exec[Disable configured probes and alert commands]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-help-command-$line[1]:"
+        case $line[1] in
+            (monitor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(snapshot)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(sample)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(record)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(replay)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(gpu)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__help__subcmd__gpu_commands" \
+"*::: :->gpu" \
+&& ret=0
+
+    case $state in
+    (gpu)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-help-gpu-command-$line[1]:"
+        case $line[1] in
+            (select)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(network)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__help__subcmd__network_commands" \
+"*::: :->network" \
+&& ret=0
+
+    case $state in
+    (network)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-help-network-command-$line[1]:"
+        case $line[1] in
+            (connections)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(capture)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(read)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(config)
+_arguments "${_arguments_options[@]}" : \
+":: :_rstop__subcmd__help__subcmd__config_commands" \
+"*::: :->config" \
+&& ret=0
+
+    case $state in
+    (config)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:rstop-help-config-command-$line[1]:"
+        case $line[1] in
+            (path)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(write)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(man)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(update)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_rstop_commands] )) ||
+_rstop_commands() {
+    local commands; commands=(
+'monitor:Open the interactive system monitor (also the default command)' \
+'snapshot:Print one JSON snapshot, including process command lines' \
+'sample:Print newline-delimited JSON samples (ten by default)' \
+'record:Record telemetry while monitoring; --samples selects headless recording' \
+'replay:Replay a local recording; --samples selects JSON output' \
+'export:Export live telemetry or a recording to CSV or SVG' \
+'gpu:Open the GPU view or select CUDA devices' \
+'network:Open connection monitoring, test a target, or capture packets' \
+'doctor:Explain resource problems, recent trends and useful next steps' \
+'config:Print the configuration path or write current preferences' \
+'completions:Generate shell completions without reading configuration' \
+'man:Print the manual page without reading configuration' \
+'update:Update this installer-managed copy of rstop' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__completions_commands] )) ||
+_rstop__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop completions commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config_commands] )) ||
+_rstop__subcmd__config_commands() {
+    local commands; commands=(
+'path:Print the configuration path' \
+'write:Save preferences to the configuration path' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop config commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__help_commands] )) ||
+_rstop__subcmd__config__subcmd__help_commands() {
+    local commands; commands=(
+'path:Print the configuration path' \
+'write:Save preferences to the configuration path' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop config help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__help__subcmd__help_commands] )) ||
+_rstop__subcmd__config__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop config help help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__help__subcmd__path_commands] )) ||
+_rstop__subcmd__config__subcmd__help__subcmd__path_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop config help path commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__help__subcmd__write_commands] )) ||
+_rstop__subcmd__config__subcmd__help__subcmd__write_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop config help write commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__path_commands] )) ||
+_rstop__subcmd__config__subcmd__path_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop config path commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__config__subcmd__write_commands] )) ||
+_rstop__subcmd__config__subcmd__write_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop config write commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__doctor_commands] )) ||
+_rstop__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop doctor commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__export_commands] )) ||
+_rstop__subcmd__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop export commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__gpu_commands] )) ||
+_rstop__subcmd__gpu_commands() {
+    local commands; commands=(
+'select:Print CUDA_VISIBLE_DEVICES for the least busy eligible GPUs' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop gpu commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__gpu__subcmd__help_commands] )) ||
+_rstop__subcmd__gpu__subcmd__help_commands() {
+    local commands; commands=(
+'select:Print CUDA_VISIBLE_DEVICES for the least busy eligible GPUs' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop gpu help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__gpu__subcmd__help__subcmd__help_commands] )) ||
+_rstop__subcmd__gpu__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop gpu help help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__gpu__subcmd__help__subcmd__select_commands] )) ||
+_rstop__subcmd__gpu__subcmd__help__subcmd__select_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop gpu help select commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__gpu__subcmd__select_commands] )) ||
+_rstop__subcmd__gpu__subcmd__select_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop gpu select commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help_commands] )) ||
+_rstop__subcmd__help_commands() {
+    local commands; commands=(
+'monitor:Open the interactive system monitor (also the default command)' \
+'snapshot:Print one JSON snapshot, including process command lines' \
+'sample:Print newline-delimited JSON samples (ten by default)' \
+'record:Record telemetry while monitoring; --samples selects headless recording' \
+'replay:Replay a local recording; --samples selects JSON output' \
+'export:Export live telemetry or a recording to CSV or SVG' \
+'gpu:Open the GPU view or select CUDA devices' \
+'network:Open connection monitoring, test a target, or capture packets' \
+'doctor:Explain resource problems, recent trends and useful next steps' \
+'config:Print the configuration path or write current preferences' \
+'completions:Generate shell completions without reading configuration' \
+'man:Print the manual page without reading configuration' \
+'update:Update this installer-managed copy of rstop' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__completions_commands] )) ||
+_rstop__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help completions commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__config_commands] )) ||
+_rstop__subcmd__help__subcmd__config_commands() {
+    local commands; commands=(
+'path:Print the configuration path' \
+'write:Save preferences to the configuration path' \
+    )
+    _describe -t commands 'rstop help config commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__config__subcmd__path_commands] )) ||
+_rstop__subcmd__help__subcmd__config__subcmd__path_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help config path commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__config__subcmd__write_commands] )) ||
+_rstop__subcmd__help__subcmd__config__subcmd__write_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help config write commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__doctor_commands] )) ||
+_rstop__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help doctor commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__export_commands] )) ||
+_rstop__subcmd__help__subcmd__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help export commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__gpu_commands] )) ||
+_rstop__subcmd__help__subcmd__gpu_commands() {
+    local commands; commands=(
+'select:Print CUDA_VISIBLE_DEVICES for the least busy eligible GPUs' \
+    )
+    _describe -t commands 'rstop help gpu commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__gpu__subcmd__select_commands] )) ||
+_rstop__subcmd__help__subcmd__gpu__subcmd__select_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help gpu select commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__help_commands] )) ||
+_rstop__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__man_commands] )) ||
+_rstop__subcmd__help__subcmd__man_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help man commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__monitor_commands] )) ||
+_rstop__subcmd__help__subcmd__monitor_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help monitor commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__network_commands] )) ||
+_rstop__subcmd__help__subcmd__network_commands() {
+    local commands; commands=(
+'connections:List sockets and their owners; samples TCP counters twice for rates' \
+'check:Check an HTTP(S) URL or TCP host\:port, with bounded timeouts' \
+'capture:Save a short private PCAP with tcpdump (Linux/macOS; existing privileges)' \
+'read:Explain and preview the first 60 headers in a local PCAP' \
+    )
+    _describe -t commands 'rstop help network commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__network__subcmd__capture_commands] )) ||
+_rstop__subcmd__help__subcmd__network__subcmd__capture_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help network capture commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__network__subcmd__check_commands] )) ||
+_rstop__subcmd__help__subcmd__network__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help network check commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__network__subcmd__connections_commands] )) ||
+_rstop__subcmd__help__subcmd__network__subcmd__connections_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help network connections commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__network__subcmd__read_commands] )) ||
+_rstop__subcmd__help__subcmd__network__subcmd__read_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help network read commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__record_commands] )) ||
+_rstop__subcmd__help__subcmd__record_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help record commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__replay_commands] )) ||
+_rstop__subcmd__help__subcmd__replay_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help replay commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__sample_commands] )) ||
+_rstop__subcmd__help__subcmd__sample_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help sample commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__snapshot_commands] )) ||
+_rstop__subcmd__help__subcmd__snapshot_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help snapshot commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__help__subcmd__update_commands] )) ||
+_rstop__subcmd__help__subcmd__update_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop help update commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__man_commands] )) ||
+_rstop__subcmd__man_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop man commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__monitor_commands] )) ||
+_rstop__subcmd__monitor_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop monitor commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network_commands] )) ||
+_rstop__subcmd__network_commands() {
+    local commands; commands=(
+'connections:List sockets and their owners; samples TCP counters twice for rates' \
+'check:Check an HTTP(S) URL or TCP host\:port, with bounded timeouts' \
+'capture:Save a short private PCAP with tcpdump (Linux/macOS; existing privileges)' \
+'read:Explain and preview the first 60 headers in a local PCAP' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop network commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__capture_commands] )) ||
+_rstop__subcmd__network__subcmd__capture_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network capture commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__check_commands] )) ||
+_rstop__subcmd__network__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network check commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__connections_commands] )) ||
+_rstop__subcmd__network__subcmd__connections_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network connections commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help_commands] )) ||
+_rstop__subcmd__network__subcmd__help_commands() {
+    local commands; commands=(
+'connections:List sockets and their owners; samples TCP counters twice for rates' \
+'check:Check an HTTP(S) URL or TCP host\:port, with bounded timeouts' \
+'capture:Save a short private PCAP with tcpdump (Linux/macOS; existing privileges)' \
+'read:Explain and preview the first 60 headers in a local PCAP' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'rstop network help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help__subcmd__capture_commands] )) ||
+_rstop__subcmd__network__subcmd__help__subcmd__capture_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network help capture commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help__subcmd__check_commands] )) ||
+_rstop__subcmd__network__subcmd__help__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network help check commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help__subcmd__connections_commands] )) ||
+_rstop__subcmd__network__subcmd__help__subcmd__connections_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network help connections commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help__subcmd__help_commands] )) ||
+_rstop__subcmd__network__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network help help commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__help__subcmd__read_commands] )) ||
+_rstop__subcmd__network__subcmd__help__subcmd__read_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network help read commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__network__subcmd__read_commands] )) ||
+_rstop__subcmd__network__subcmd__read_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop network read commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__record_commands] )) ||
+_rstop__subcmd__record_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop record commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__replay_commands] )) ||
+_rstop__subcmd__replay_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop replay commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__sample_commands] )) ||
+_rstop__subcmd__sample_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop sample commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__snapshot_commands] )) ||
+_rstop__subcmd__snapshot_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop snapshot commands' commands "$@"
+}
+(( $+functions[_rstop__subcmd__update_commands] )) ||
+_rstop__subcmd__update_commands() {
+    local commands; commands=()
+    _describe -t commands 'rstop update commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_rstop" ]; then
+    _rstop "$@"
+else
+    compdef _rstop rstop
+fi
