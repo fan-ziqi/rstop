@@ -136,12 +136,11 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
-      - name: "Install license collector"
-        uses: "taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177"
+      - name: "Fetch shared dependency licenses"
+        uses: "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093"
         with:
-          "tool": "cargo-about@0.9.2"
-      - name: "Collect dependency licenses"
-        run: "cargo about generate --locked --fail packaging/licenses.hbs -o THIRD-PARTY-LICENSES.html"
+          "name": "dependency-licenses"
+          "path": "."
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest

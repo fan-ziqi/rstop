@@ -44,3 +44,18 @@ jobs:
           python scripts/distribution.py docs --binary "$binary" --check
           python scripts/distribution.py smoke --binary "$binary"
           python -m unittest discover -s scripts -p 'test_*.py'
+      - name: Install license collector
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/')
+        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177
+        with:
+          tool: cargo-about@0.9.2
+      - name: Collect dependency licenses once
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/')
+        run: cargo about generate --locked --fail packaging/licenses.hbs -o THIRD-PARTY-LICENSES.html
+      - name: Share dependency licenses with release builds
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dependency-licenses
+          path: THIRD-PARTY-LICENSES.html
+          if-no-files-found: error
