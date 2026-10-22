@@ -1,8 +1,13 @@
 # rstop
 
+[![Build](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/fan-ziqi/rstop/actions/workflows/checks.yml)
+[![Release](https://img.shields.io/github/v/release/fan-ziqi/rstop)](https://github.com/fan-ziqi/rstop/releases/latest)
+[![Rust](https://img.shields.io/badge/Rust-1.95%2B-orange?logo=rust)](rust-toolchain.toml)
+[![License](https://img.shields.io/github/license/fan-ziqi/rstop)](LICENSE)
+
 **One terminal. Your whole system.** A Rust TUI for local CPU, GPU, processes, storage, networking, containers and services on Linux, macOS and Windows.
 
-Version **0.2.0** · [Feature and platform coverage](COVERAGE.md) · [Benchmarks](BENCHMARK.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
+[Feature and platform coverage](COVERAGE.md) · [Benchmarks](BENCHMARK.md) · [Contributing](CONTRIBUTING.md) · [Releases](RELEASING.md)
 
 ## Install
 
@@ -18,7 +23,7 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/fan-ziqi/rstop/releases/latest/download/rstop-installer.ps1 | iex"
 ```
 
-Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Use `rstop update --check` to check for updates, `rstop update` to install one, or rerun the installer. For a fixed release, replace `latest/download` with `download/v0.2.0`. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases).
+Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Use `rstop update --check` to check for updates, `rstop update` to install one, or rerun the installer. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases) are also available for manual installation.
 
 Supported release targets: Linux x86-64/ARM64 with glibc 2.35+, macOS Intel/Apple Silicon, Windows x64/ARM64. NVIDIA monitoring uses the installed driver/NVML; the CUDA Toolkit is not required. Docker, Podman and inspection utilities are optional and are not installed automatically. See [platform limits](COVERAGE.md#known-gaps).
 

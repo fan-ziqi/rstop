@@ -30,8 +30,8 @@ Release installers and the update library are provided by [cargo-dist](https://a
 4. Push the matching version tag, for example:
 
    ```sh
-   git tag v0.2.0
-   git push origin v0.2.0
+   git tag v0.1.0
+   git push origin v0.1.0
    ```
 
 Wait for all six archive jobs and release publication to succeed. Verify the remote branch/tag point to the intended commit. Installation URLs become usable after the release publishes; local fixture tests do not verify this public path. Publishing to crates.io is optional and is not part of the installer release flow.

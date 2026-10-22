@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.1.0
 
 - Local CPU, memory, GPU, process, storage, network, container and service monitoring in one Rust TUI for Linux, macOS and Windows.
 - Keyboard-labelled controls, inline filters, sortable tables, stable process selection, trees, program grouping and 90 selectable process columns.
