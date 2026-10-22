@@ -7,6 +7,7 @@ import time
 def check(command, env):
     output = bytearray()
     start, send, finished, close = windows(command, env, output) if os.name == "nt" else posix(command, env, output)
+    closed = False
     try:
         start()
         deadline = time.monotonic() + 20
@@ -17,12 +18,15 @@ def check(command, env):
                 quit_sent = True
             code = finished()
             if code is not None:
+                closed = True
+                close()  # Drain the final ConPTY frame, including startup errors, before judging it.
                 assert quit_sent and code == 0, f"Terminal startup/exit failed ({code}): {output[-4000:]!r}"
                 return {"startup": True, "keyboard_exit": True, "output_bytes": len(output)}
             time.sleep(0.02)
         raise RuntimeError(f"Terminal startup/exit timed out: {output[-4000:]!r}")
     finally:
-        close()
+        if not closed:
+            close()
 
 
 def posix(command, env, output):
@@ -36,6 +40,7 @@ def posix(command, env, output):
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 44, 140, 0, 0))
     original = termios.tcgetattr(slave)
     process = None
+    reader = None
 
     def drain():
         try:
@@ -46,9 +51,10 @@ def posix(command, env, output):
             pass
 
     def start():
-        nonlocal process
+        nonlocal process, reader
         process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, env=env)
-        threading.Thread(target=drain, daemon=True).start()
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
 
     def close():
         if process and process.poll() is None:
@@ -56,6 +62,8 @@ def posix(command, env, output):
             process.wait(timeout=5)
         restored = termios.tcgetattr(slave) == original
         os.close(slave)
+        if reader:
+            reader.join(timeout=2)
         os.close(master)
         if process and process.returncode == 0:
             assert restored, "Terminal attributes were not restored"
@@ -127,6 +135,7 @@ def windows(command, env, output):
     startup.startup.cb = c.sizeof(startup)
     startup.attributes = c.cast(attributes, c.c_void_p)
     process = Process()
+    reader = None
 
     def send(data):
         count = w.DWORD()
@@ -140,12 +149,14 @@ def windows(command, env, output):
                 output.extend(buffer.raw[:count.value])
 
     def start():
+        nonlocal reader
         block = c.create_unicode_buffer("\0".join(f"{key}={value}" for key, value in sorted(env.items())) + "\0\0")
         line = c.create_unicode_buffer(subprocess.list2cmdline(command))
         require(create(None, line, None, None, False, 0x80000 | 0x400, block, None, c.byref(startup), c.byref(process)))
         close_handle(input_read)
         close_handle(output_write)
-        threading.Thread(target=drain, daemon=True).start()
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
 
     def finished():
         if wait(process.process, 0) != 0:
@@ -159,6 +170,8 @@ def windows(command, env, output):
             terminate(process.process, 1)
             wait(process.process, 5000)
         close_console(console)
+        if reader:
+            reader.join(timeout=2)
         delete(attributes)
         for handle in (input_write, output_read, process.thread, process.process):
             if handle:
