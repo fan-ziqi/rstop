@@ -1,6 +1,6 @@
 //! Discoverable actions. Menus and visible controls use the actual dispatched key.
 use super::{App, View};
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn key_name(key: KeyCode) -> String {
     match key {
@@ -17,6 +17,26 @@ pub fn key_name(key: KeyCode) -> String {
         KeyCode::Null => String::new(),
         _ => format!("{key:?}"),
     }
+}
+
+pub fn key_event_name(key: KeyEvent) -> String {
+    let mut parts = Vec::new();
+    for (modifier, name) in [
+        (KeyModifiers::CONTROL, "Ctrl"),
+        (KeyModifiers::ALT, "Alt"),
+        (KeyModifiers::SHIFT, "Shift"),
+    ] {
+        if key.modifiers.contains(modifier) {
+            parts.push(name.to_owned());
+        }
+    }
+    let name = key_name(key.code);
+    parts.push(if key.modifiers.contains(KeyModifiers::CONTROL) {
+        name.to_ascii_uppercase()
+    } else {
+        name
+    });
+    parts.join("+")
 }
 
 pub fn time_label(seconds: u64) -> String {
@@ -251,7 +271,7 @@ impl App {
             ("Save preferences", KeyCode::Char('w')),
             ("Cycle theme", KeyCode::Char('c')),
             ("Toggle loopback", KeyCode::Char('i')),
-            ("Quit", KeyCode::F(10)),
+            ("Quit", KeyCode::Char('q')),
         ]
         .into_iter()
         .map(|(label, key)| (label.into(), key))

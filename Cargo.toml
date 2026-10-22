@@ -11,7 +11,10 @@ repository = "https://github.com/fan-ziqi/rstop"
 homepage = "https://fan-ziqi.github.io/rstop/"
 keywords = ["cli", "monitor", "gpu", "process", "terminal"]
 categories = ["command-line-utilities", "visualization"]
-include = ["/src/**", "/tests/*.rs", "/Cargo.toml", "/Cargo.lock", "/rust-toolchain.toml", "/LICENSE", "/NOTICE", "/README.md", "/CHANGELOG.md", "/COVERAGE.md"]
+include = ["/src/**", "/tests/*.rs", "/vendor/crossterm/**", "/Cargo.toml", "/Cargo.lock", "/rust-toolchain.toml", "/LICENSE", "/NOTICE", "/README.md", "/CHANGELOG.md", "/COVERAGE.md"]
+
+[patch.crates-io]
+crossterm = { path = "vendor/crossterm" }
 
 [dependencies]
 anyhow = "1"

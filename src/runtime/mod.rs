@@ -224,6 +224,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         replay_len,
         queued_key: None,
         last_click: None,
+        last_escape: None,
         ros_job: None,
     };
     let result = (|| -> Result<()> {
@@ -335,18 +336,21 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 terminal.draw(|frame| ui::draw(frame, &mut app))?;
                 dirty = false;
             }
-            if input_state.queued_key.is_none() && !event::poll(Duration::from_millis(80))? {
+            // Queued controls dispatch actions without counting as physical Esc presses.
+            if let Some(key) = input_state.queued_key.take() {
+                dirty = true;
+                if !input_state.key(&mut app, key) {
+                    break;
+                }
                 continue;
             }
-            let input = if let Some(key) = input_state.queued_key.take() {
-                Event::Key(key)
-            } else {
-                event::read()?
-            };
-            match input {
+            if !event::poll(Duration::from_millis(80))? {
+                continue;
+            }
+            match event::read()? {
                 Event::Key(key) if key.kind != KeyEventKind::Release => {
                     dirty = true;
-                    if !input_state.key(&mut app, key) {
+                    if !input_state.terminal_key(&mut app, key, Instant::now()) {
                         break;
                     }
                 }
@@ -355,6 +359,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     input_state.mouse(&mut app, mouse);
                 }
                 Event::Resize(_, _) => dirty = true,
+                Event::FocusLost => input_state.last_escape = None,
                 _ => {}
             }
         }

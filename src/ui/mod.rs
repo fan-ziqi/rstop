@@ -251,7 +251,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         if area.width < 60 || area.height < 18 {
             frame.render_widget(
                 Paragraph::new(
-                    "rstop\n\nResize to at least 60 × 18\nRecommended: 140 × 44\n\n[F10] Quit · [Esc] Menu",
+                    "rstop\n\nResize to at least 60 × 18\nRecommended: 140 × 44\n\n[q] / [Ctrl+C] Quit · [Esc] Menu\nPress Esc twice quickly to quit",
                 )
                 .style(Style::new().fg(p.mint))
                 .alignment(Alignment::Center),
@@ -656,13 +656,15 @@ fn footer_buttons(
     app: &App,
     width: u16,
     editing: bool,
-) -> Vec<(crossterm::event::KeyCode, &'static str)> {
-    use crossterm::event::KeyCode as K;
+) -> Vec<(crossterm::event::KeyEvent, &'static str)> {
+    use crossterm::event::{KeyCode as K, KeyEvent, KeyModifiers};
+    let key = |code| KeyEvent::new(code, KeyModifiers::NONE);
+    let quit = (KeyEvent::new(K::Char('c'), KeyModifiers::CONTROL), "Quit");
     let mut buttons = if editing {
-        vec![(K::Enter, "Apply"), (K::Esc, "Cancel")]
+        vec![(key(K::Enter), "Apply"), (key(K::Esc), "Cancel")]
     } else {
         let mut items = vec![(
-            K::Esc,
+            key(K::Esc),
             if app.filter.is_empty() && !app.has_row_selection() {
                 "Menu"
             } else {
@@ -670,19 +672,19 @@ fn footer_buttons(
             },
         )];
         if app.can_filter() {
-            items.push((K::F(3), "Filter"));
+            items.push((key(K::F(3)), "Filter"));
         }
         if app.has_process_table()
             || matches!(app.view, View::Network | View::Containers | View::Services)
         {
-            items.push((K::F(4), "Sort"));
+            items.push((key(K::F(4)), "Sort"));
         }
-        items.extend([(K::F(5), "View"), (K::F(6), "Tools")]);
+        items.extend([(key(K::F(5)), "View"), (key(K::F(6)), "Tools")]);
         if app.has_process_table() || matches!(app.view, View::Services | View::Containers) {
-            items.push((K::F(7), "Logs"));
+            items.push((key(K::F(7)), "Logs"));
         }
         items.push((
-            K::Enter,
+            key(K::Enter),
             if app.selection_open {
                 "Close"
             } else {
@@ -691,12 +693,12 @@ fn footer_buttons(
         ));
         // Keep every resource action visible. Narrow terminals wrap instead of
         // silently dropping actions; extra global shortcuts use spare cells.
-        items.push((K::F(10), "Quit"));
+        items.push(quit);
         let rows = footer_rows(&items, width);
         for extra in [
-            (K::Char(':'), "Commands"),
-            (K::F(1), "Help"),
-            (K::F(2), "Settings"),
+            (key(K::Char(':')), "Commands"),
+            (key(K::F(1)), "Help"),
+            (key(K::F(2)), "Settings"),
         ] {
             let mut candidate = items.clone();
             candidate.insert(candidate.len() - 1, extra);
@@ -707,15 +709,15 @@ fn footer_buttons(
         items.pop(); // Quit stays last, including while editing a filter.
         items
     };
-    buttons.push((K::F(10), "Quit"));
+    buttons.push(quit);
     buttons
 }
 
-fn footer_rows(buttons: &[(crossterm::event::KeyCode, &str)], width: u16) -> u16 {
+fn footer_rows(buttons: &[(crossterm::event::KeyEvent, &str)], width: u16) -> u16 {
     let mut rows = 1;
     let mut used = 0;
     for (key, label) in buttons {
-        let cells = controls::button_width(*key, label);
+        let cells = controls::key_event_button_width(*key, label);
         if used > 0 && used + cells > width {
             rows += 1;
             used = 0;
@@ -730,13 +732,13 @@ fn footer(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     let mut y = area.y;
     app.footer_actions.clear();
     for (key, label) in footer_buttons(app, area.width, app.editing_filter) {
-        let width = controls::button_width(key, label);
+        let width = controls::key_event_button_width(key, label);
         if x + width > area.right() {
             x = area.x;
             y += 1;
         }
         let rect = Rect::new(x, y, width, 1);
-        controls::key_button(frame, rect, key, label, false, p);
+        controls::key_event_button(frame, rect, key, label, p);
         app.footer_actions.push((rect, key));
         x += width;
     }

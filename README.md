@@ -113,7 +113,9 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `F9`, `n`, `a` | Signal, nice or affinity for the selected process |
 | `Y`, `R`, `O` | Label actions; resource diagnosis/trends/alerts; extra sampled information |
 | `Esc`, `Del` | Close/unselect/clear filter/open menu; clear an applied filter |
-| `F10`, `q`, `Ctrl+C` | Quit and restore the terminal |
+| `q`, `Ctrl+C`, quick `Esc` `Esc` | Quit and restore the terminal (`q` is text while editing) |
+
+Press `Esc` twice within 500 ms to quit from any screen. A single `Esc` keeps its normal back/cancel action; another key or mouse action cancels the double-press sequence. `F10` remains an exit alias when the terminal passes it through.
 
 Click or scroll over a table to focus it. Network and GPU keep both tables on one page, with independent filters, sorting and scrolling. Headers sort; right-click opens tools; double-click opens details. Inactive buttons keep the surrounding background, the current page has an accent outline, and filled highlights identify selected rows.
 

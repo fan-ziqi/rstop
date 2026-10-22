@@ -1,7 +1,10 @@
 //! Buttons expose their dispatched key; inline editors never change table geometry.
 use super::{Palette, block};
-use crate::app::{App, commands::key_name};
-use crossterm::event::KeyCode;
+use crate::app::{
+    App,
+    commands::{key_event_name, key_name},
+};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
 
 pub(super) fn selectable_block<'a>(
@@ -29,11 +32,11 @@ pub(super) fn selectable_block<'a>(
     }))
 }
 
-pub(super) fn key_spans(key: KeyCode, label: &str, active: bool, p: Palette) -> Vec<Span<'static>> {
+fn named_key_spans(key: String, label: &str, active: bool, p: Palette) -> Vec<Span<'static>> {
     vec![
         Span::raw(" "),
         Span::styled(
-            format!("[{}]", key_name(key)),
+            format!("[{key}]"),
             Style::new().fg(if active { p.mint } else { p.blue }).bold(),
         ),
         Span::styled(
@@ -42,20 +45,24 @@ pub(super) fn key_spans(key: KeyCode, label: &str, active: bool, p: Palette) -> 
         ),
     ]
 }
-pub(super) fn key_button(
+
+pub(super) fn key_event_button(
     frame: &mut Frame,
     rect: Rect,
-    key: KeyCode,
+    key: KeyEvent,
     label: &str,
-    active: bool,
     p: Palette,
 ) {
     frame.render_widget(
-        Paragraph::new(Line::from(key_spans(key, label, active, p))),
+        Paragraph::new(Line::from(named_key_spans(
+            key_event_name(key),
+            label,
+            false,
+            p,
+        ))),
         rect,
     );
 }
-
 pub(super) fn nav_button(
     frame: &mut Frame,
     rect: Rect,
@@ -96,8 +103,8 @@ pub(super) fn nav_button(
     }
     frame.render_widget(button, rect);
 }
-pub(super) fn button_width(key: KeyCode, label: &str) -> u16 {
-    (Line::raw(key_name(key)).width() + Line::raw(label).width() + 5) as u16
+pub(super) fn key_event_button_width(key: KeyEvent, label: &str) -> u16 {
+    (Line::raw(key_event_name(key)).width() + Line::raw(label).width() + 5) as u16
 }
 pub(super) fn table_header(frame: &mut Frame, app: &mut App, p: Palette) {
     let area = app.controls_rect;

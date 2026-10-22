@@ -4,6 +4,7 @@ use rstop::app::App;
 use std::time::{Duration, Instant};
 impl Input<'_> {
     pub fn mouse(&mut self, app: &mut App, mouse: MouseEvent) {
+        self.last_escape = None;
         if app.update_notice.is_some() {
             if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
                 if let Some((_, index)) = app
@@ -150,7 +151,7 @@ impl Input<'_> {
                 .iter()
                 .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
             {
-                self.queued_key = Some(KeyEvent::new(*code, KeyModifiers::NONE));
+                self.queued_key = Some(*code);
                 return;
             }
             if app.filter_rect.contains((mouse.column, mouse.row).into()) {

@@ -23,7 +23,7 @@ impl MenuAction {
         match self {
             Self::Settings => KeyCode::F(2),
             Self::Help => KeyCode::F(1),
-            Self::Quit => KeyCode::F(10),
+            Self::Quit => KeyCode::Char('q'),
         }
     }
 }

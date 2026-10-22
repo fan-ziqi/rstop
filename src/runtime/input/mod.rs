@@ -7,7 +7,7 @@ mod updates;
 use super::inspect::{
     additional, inspect, inspect_process_extra, load_logs, load_resource_detail, open_report, task,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use rstop::app::{App, MenuKind, SignalTarget, Sort, UiMenu, View};
 use std::{
     path::PathBuf,
@@ -15,8 +15,10 @@ use std::{
         atomic::{AtomicU64, AtomicUsize, Ordering},
         mpsc,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
+
+const DOUBLE_ESCAPE_WINDOW: Duration = Duration::from_millis(500);
 
 pub(super) struct Input<'a> {
     pub interval: &'a AtomicU64,
@@ -29,10 +31,32 @@ pub(super) struct Input<'a> {
     pub replay_len: usize,
     pub queued_key: Option<KeyEvent>,
     pub last_click: Option<(Instant, u16, u16)>,
+    pub last_escape: Option<Instant>,
     pub ros_job: Option<ros::Job>,
 }
 
 impl Input<'_> {
+    pub fn terminal_key(&mut self, app: &mut App, key: KeyEvent, now: Instant) -> bool {
+        if key.kind == KeyEventKind::Release {
+            return true;
+        }
+        if key.code == KeyCode::Esc && key.modifiers.is_empty() {
+            if key.kind == KeyEventKind::Repeat {
+                return true;
+            }
+            if self
+                .last_escape
+                .replace(now)
+                .is_some_and(|last| now.saturating_duration_since(last) <= DOUBLE_ESCAPE_WINDOW)
+            {
+                return false;
+            }
+        } else {
+            self.last_escape = None;
+        }
+        self.key(app, key)
+    }
+
     pub fn key(&mut self, app: &mut App, mut key: KeyEvent) -> bool {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return false;
@@ -823,6 +847,7 @@ mod tests {
             replay_len: 0,
             queued_key: None,
             last_click: None,
+            last_escape: None,
             ros_job: None,
         };
         let mut app = App::new(Config::default());
@@ -842,6 +867,176 @@ mod tests {
             tag_name: "v99.0.0".into(),
             html_url: "https://github.com/fan-ziqi/rstop/releases/tag/v99.0.0".into(),
             ..Default::default()
+        }
+    }
+
+    #[test]
+    fn double_escape_quits_across_views_editors_and_nested_dialogs() {
+        for view in [
+            View::Overview,
+            View::Processes,
+            View::Gpu,
+            View::Storage,
+            View::Network,
+            View::System,
+            View::Containers,
+            View::Services,
+        ] {
+            for context in [
+                "page", "filter", "menu", "settings", "help", "detail", "search", "prompt",
+                "signal", "commands", "actions", "update",
+            ] {
+                run(|input, app| {
+                    app.set_view(view);
+                    match context {
+                        "filter" => app.begin_filter(),
+                        "menu" => app.main_menu = Some(Default::default()),
+                        "settings" => app.settings = true,
+                        "help" => app.help = true,
+                        "detail" | "search" => {
+                            app.detail = Some(("Report".into(), "Contents".into()));
+                            app.detail_search = context == "search";
+                        }
+                        "prompt" => app.prompt = Some(("nice".into(), "0".into(), None)),
+                        "signal" => {
+                            app.signal = Some(SignalTarget {
+                                pid: 42,
+                                start_time: 0,
+                                name: "worker".into(),
+                                signal: sysinfo::Signal::Term,
+                            })
+                        }
+                        "commands" => {
+                            app.ui_menu = Some(UiMenu::new("Commands", app.commands(), 0))
+                        }
+                        "actions" => app.action_menu = Some((vec![], 0)),
+                        "update" => {
+                            let mut notice = rstop::updates::Notice::new(update_release());
+                            notice.phase = rstop::updates::Phase::Installing;
+                            app.update_notice = Some(notice);
+                        }
+                        _ => {}
+                    }
+                    let now = Instant::now();
+                    let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+                    assert!(
+                        input.terminal_key(app, escape, now),
+                        "{view:?}/{context}: first Esc exited"
+                    );
+                    assert!(
+                        !input.terminal_key(app, escape, now + Duration::from_millis(100)),
+                        "{view:?}/{context}: second Esc did not exit"
+                    );
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn double_escape_requires_consecutive_unmodified_presses_within_the_window() {
+        run(|input, app| {
+            let now = Instant::now();
+            let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+            assert!(input.terminal_key(app, escape, now));
+            assert!(app.main_menu.is_some());
+            assert!(input.terminal_key(app, escape, now + Duration::from_millis(501)));
+            assert!(app.main_menu.is_none());
+            assert!(!input.terminal_key(app, escape, now + Duration::from_millis(600)));
+        });
+        for interrupt in [
+            KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::ALT),
+        ] {
+            run(|input, app| {
+                let now = Instant::now();
+                let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+                assert!(input.terminal_key(app, escape, now));
+                assert!(input.terminal_key(app, interrupt, now + Duration::from_millis(50)));
+                assert!(input.terminal_key(app, escape, now + Duration::from_millis(100)));
+                assert!(!input.terminal_key(app, escape, now + Duration::from_millis(200)));
+            });
+        }
+    }
+
+    #[test]
+    fn escape_release_and_repeat_events_do_not_count_as_a_second_press() {
+        run(|input, app| {
+            let now = Instant::now();
+            let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+            assert!(input.terminal_key(app, escape, now));
+            for kind in [KeyEventKind::Release, KeyEventKind::Repeat] {
+                let key = KeyEvent::new_with_kind(KeyCode::Esc, KeyModifiers::NONE, kind);
+                assert!(input.terminal_key(app, key, now + Duration::from_millis(100)));
+                assert!(app.main_menu.is_some());
+            }
+            assert!(!input.terminal_key(app, escape, now + Duration::from_millis(200)));
+        });
+    }
+
+    #[test]
+    fn mouse_cancel_actions_do_not_arm_double_escape_and_break_the_sequence() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+        run(|input, app| {
+            let now = Instant::now();
+            let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+            assert!(input.terminal_key(app, escape, now));
+            let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+            terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+            input.mouse(
+                app,
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 0,
+                    row: 0,
+                    modifiers: KeyModifiers::NONE,
+                },
+            );
+            assert!(app.main_menu.is_none());
+            assert!(input.last_escape.is_none());
+            assert!(input.terminal_key(app, escape, now + Duration::from_millis(100)));
+            assert!(!input.terminal_key(app, escape, now + Duration::from_millis(200)));
+        });
+    }
+
+    #[test]
+    fn quit_controls_dispatch_ctrl_c_even_while_q_is_filter_text() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use ratatui::{Terminal, backend::TestBackend};
+        for editing in [false, true] {
+            run(|input, app| {
+                if editing {
+                    app.begin_filter();
+                    assert!(press(input, app, KeyCode::Char('q')));
+                    assert_eq!(app.filter, "q");
+                }
+                let mut terminal = Terminal::new(TestBackend::new(60, 18)).unwrap();
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                let (rect, key) = *app.footer_actions.last().unwrap();
+                assert_eq!(
+                    key,
+                    KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)
+                );
+                let text: String = (rect.x..rect.right())
+                    .map(|x| terminal.backend().buffer()[(x, rect.y)].symbol())
+                    .collect();
+                assert!(text.contains("[Ctrl+C] Quit"), "{text}");
+                input.mouse(
+                    app,
+                    MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: rect.x + 1,
+                        row: rect.y,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                );
+                let queued = input.queued_key.take().unwrap();
+                assert_eq!(queued, key);
+                assert!(!input.key(app, queued));
+            });
+        }
+        for code in [KeyCode::Char('q'), KeyCode::F(10)] {
+            run(|input, app| assert!(!press(input, app, code)));
         }
     }
 

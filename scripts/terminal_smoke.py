@@ -5,6 +5,23 @@ import time
 
 
 def check(command, env):
+    checks = {
+        name: check_exit(command, env, keys)
+        for name, keys in {
+            "q": (b"q",),
+            "ctrl_c": (b"\x03",),
+            "double_escape": (b"\x1b", b"\x1b"),
+            "buffered_double_escape": (b"\x1b\x1b",),
+            "filter_double_escape": (b"2f", b"q", b"\x1b", b"\x1b"),
+            "filter_buffered_double_escape": (b"2f", b"q", b"\x1b\x1b"),
+            "f10_alias": (b"\x1b[21~",),
+        }.items()
+    }
+    return {"startup": True, "keyboard_exit": True, "exit_keys": checks,
+            "output_bytes": sum(result["output_bytes"] for result in checks.values())}
+
+
+def check_exit(command, env, keys):
     output = bytearray()
     start, send, finished, close = windows(command, env, output) if os.name == "nt" else posix(command, env, output)
     closed = False
@@ -12,13 +29,19 @@ def check(command, env):
         start()
         deadline = time.monotonic() + 20
         quit_sent = False
+        keys_sent = 0
+        last_sent = None
         visible_since = None
         while time.monotonic() < deadline:
             if visible_since is None and b"Overview" in output:
                 visible_since = time.monotonic()
-            if not quit_sent and visible_since is not None and time.monotonic() - visible_since >= 1:
-                send(b"q")
-                quit_sent = True
+            now = time.monotonic()
+            if (not quit_sent and visible_since is not None and now - visible_since >= 1
+                    and (last_sent is None or now - last_sent >= 0.1)):
+                send(keys[keys_sent])
+                keys_sent += 1
+                last_sent = now
+                quit_sent = keys_sent == len(keys)
             code = finished()
             if code is not None:
                 closed = True

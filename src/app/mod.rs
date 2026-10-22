@@ -146,7 +146,7 @@ pub struct App {
     pub workload_sort: Option<Sort>,
     pub gpu_ranges: Vec<(ratatui::layout::Rect, usize)>,
     pub filter_rect: ratatui::layout::Rect,
-    pub footer_actions: Vec<(ratatui::layout::Rect, crossterm::event::KeyCode)>,
+    pub footer_actions: Vec<(ratatui::layout::Rect, crossterm::event::KeyEvent)>,
     pub action_menu: Option<(Vec<(String, crate::management::Plan)>, usize)>,
     pub pending_plan: Option<crate::management::Plan>,
     pub prompt: Option<(String, String, Option<Process>)>,

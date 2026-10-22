@@ -363,7 +363,7 @@ fn common_action_bar_keeps_keycaps_and_primary_actions_visible_at_every_supporte
                 .flat_map(|y| (0..width).map(move |x| (x, y)))
                 .map(|point| buffer[point].symbol())
                 .collect();
-            for label in ["[Esc]", "[F6] Tools", "[F10] Quit"] {
+            for label in ["[Esc]", "[F6] Tools", "[Ctrl+C] Quit"] {
                 assert!(
                     footer.contains(label),
                     "{width}x{height} {view:?}: {footer}"
@@ -393,7 +393,7 @@ fn common_action_bar_keeps_keycaps_and_primary_actions_visible_at_every_supporte
                     assert!(rect.y > y || rect.x >= right);
                 }
                 previous = Some((rect.y, rect.right()));
-                let expected = format!("[{}]", rstop::app::commands::key_name(*key));
+                let expected = format!("[{}]", rstop::app::commands::key_event_name(*key));
                 let actual: String = (rect.x..rect.right())
                     .map(|x| buffer[(x, rect.y)].symbol())
                     .collect();

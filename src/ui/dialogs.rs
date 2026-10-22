@@ -273,7 +273,8 @@ Keys always appear in [brackets]. Click a control or press its key.
   [F6] Tools   Actions for the current resource or selected object
   [F7] Logs    Process output, service journal or container logs
   [Esc]        Back: close pane/popup, unselect, clear filter, then menu
-  [F1] Help    [F2] Settings    [F10] Quit
+  [F1] Help    [F2] Settings    [Ctrl+C] Quit
+  Press [Esc] twice within 500 ms to quit from any screen.
 
 SELECT AND SEARCH
   [↑↓] select; [PgUp/PgDn] scroll; [Home/End] jump.
@@ -328,7 +329,7 @@ These remain available; menus show the key beside each action.
   [S/T] GPU processes; [I] Device table; [m] Advanced process / workload tools
   [,/.] Replay backward / forward ten samples
   [?/Esc] Main menu; [:] All commands; [c/i/w] Theme / loopback / save
-  [q] or [Ctrl+C] Quit (q is text while editing)
+  [q] or [Ctrl+C] Quit (q is text while editing); [F10] also quits if received
 
 LOG DETAILS
   [f] Follow/pause; [p] Choose file; [/] Search; [←→] Pan.
