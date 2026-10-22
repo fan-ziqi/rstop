@@ -32,6 +32,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     dialogs::surface(frame, area, "rstop", p, p.mint);
     let inner = area.inner(Margin::new(2, 1));
     let roomy = inner.height >= 30 && inner.width >= 54;
+    let count = MenuAction::ALL.len() as u16;
     let logo_height = wordmark::HEIGHT;
     let logo_y = inner.y + u16::from(roomy);
     wordmark::draw(
@@ -41,13 +42,16 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
         p,
     );
     let intro_y = logo_y + logo_height + u16::from(roomy);
-    frame.render_widget(
-        Paragraph::new("One terminal. Your whole system.")
-            .alignment(Alignment::Center)
-            .style(Style::new().fg(p.text)),
-        Rect::new(inner.x, intro_y, inner.width, 1),
-    );
-    let meta_y = intro_y + if roomy { 2 } else { 1 };
+    let show_intro = inner.height >= logo_height + count + 5;
+    if show_intro {
+        frame.render_widget(
+            Paragraph::new("One terminal. Your whole system.")
+                .alignment(Alignment::Center)
+                .style(Style::new().fg(p.text)),
+            Rect::new(inner.x, intro_y, inner.width, 1),
+        );
+    }
+    let meta_y = intro_y + if roomy { 2 } else { u16::from(show_intro) };
     let developer = format!("{}  ·  ", project::DEVELOPER);
     let metadata = format!(
         "{developer}v{}  ·  {}",
@@ -90,9 +94,9 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     let content_end = meta_y + 3;
     let start = content_end + if roomy { 2 } else { 0 };
     let available = (inner.bottom() - 1).saturating_sub(start);
-    let height = if available >= 9 { 3 } else { 1 };
-    let gap = u16::from(available >= height * 3 + 2);
-    let menu_height = height * 3 + gap * 2;
+    let height = if available >= count * 3 { 3 } else { 1 };
+    let gap = u16::from(available >= height * count + count - 1);
+    let menu_height = height * count + gap * (count - 1);
     let y = start + (available.saturating_sub(menu_height) / 2).min(2);
     let width = inner.width.min(30);
     for (index, action) in MenuAction::ALL.into_iter().enumerate() {

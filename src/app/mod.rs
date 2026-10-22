@@ -8,6 +8,7 @@ pub mod ros;
 pub mod signals;
 mod sort;
 pub mod tag_context;
+pub mod text_selection;
 use crate::{config::Config, model::*};
 use std::collections::{HashSet, VecDeque};
 
@@ -179,6 +180,9 @@ pub struct App {
     pub selection_scroll: usize,
     pub selection_lines: usize,
     pub selection_viewport: usize,
+    pub text_regions: Vec<text_selection::TextRegion>,
+    pub text_selection: text_selection::TextSelection,
+    pub clipboard_request: Option<String>,
     pub selected_gpu: usize,
     pub filter: String,
     pub editing_filter: bool,
@@ -286,6 +290,9 @@ impl App {
             selection_scroll: 0,
             selection_lines: 0,
             selection_viewport: 0,
+            text_regions: vec![],
+            text_selection: Default::default(),
+            clipboard_request: None,
             selected_gpu: 0,
             filter: String::new(),
             editing_filter: false,
@@ -864,6 +871,7 @@ impl App {
         self.close_selection();
     }
     pub fn close_selection(&mut self) {
+        self.text_selection.clear();
         self.selection_open = false;
         self.process_detail_rect = Default::default();
         self.selection_scroll = 0;

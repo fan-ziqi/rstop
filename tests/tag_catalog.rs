@@ -359,6 +359,9 @@ fn screen(terminal: &Terminal<TestBackend>, rect: ratatui::layout::Rect) -> Stri
 
 #[test]
 fn trailing_badges_are_quiet_bounded_and_all_selection_content_can_be_read_after_resize() {
+    let pid_field = regex::Regex::new(r"PID\s+│ 42").unwrap();
+    let cpu_field = regex::Regex::new(r"CPU\s+│ 140\.0").unwrap();
+    let unknown_memory = regex::Regex::new(r"MEMORY\s+│ —").unwrap();
     for (w, h) in [
         (60, 18),
         (80, 24),
@@ -420,9 +423,9 @@ fn trailing_badges_are_quiet_bounded_and_all_selection_content_can_be_read_after
             }
             assert!(read.contains(end), "{view:?} {w}x{h}: command tail missing");
             if view == View::Processes {
-                assert!(read.contains("PID: 42"));
-                assert!(read.contains("CPU: 140.0"));
-                assert!(!read.contains("MEMORY: —"));
+                assert!(pid_field.is_match(&read));
+                assert!(cpu_field.is_match(&read));
+                assert!(!unknown_memory.is_match(&read));
             }
             assert!(read.contains("LABELS"));
             assert!(read.contains("ALL SAMPLED FIELDS".split_at(10).0));

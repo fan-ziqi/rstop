@@ -75,6 +75,37 @@ impl Input<'_> {
             self.key(app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             return; // Never send this click to the parent popup or resource table.
         }
+        let position = (mouse.column, mouse.row).into();
+        if app.text_selection.dragging()
+            && matches!(
+                mouse.kind,
+                MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
+            )
+        {
+            let finish = matches!(mouse.kind, MouseEventKind::Up(_));
+            app.text_selection.extend(position, finish);
+            self.last_click = None;
+            return;
+        }
+        if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+            app.text_selection.clear();
+            let label = !has_popup
+                && app
+                    .label_targets
+                    .iter()
+                    .any(|(rect, _)| rect.contains(position));
+            if !label
+                && let Some(region) = app
+                    .text_regions
+                    .iter()
+                    .find(|region| region.buffer.area.contains(position))
+                    .cloned()
+            {
+                app.text_selection.begin(region, position);
+                self.last_click = None;
+                return;
+            }
+        }
         if !has_popup
             && matches!(
                 mouse.kind,

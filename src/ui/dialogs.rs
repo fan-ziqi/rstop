@@ -453,6 +453,17 @@ fn render_detail(
             .scroll((app.detail_scroll.min(u16::MAX as usize) as u16, 0))
     };
     frame.render_widget(widget, content);
+    app.text_regions.clear();
+    app.text_regions
+        .push(crate::app::text_selection::TextRegion::capture(
+            format!(
+                "report:{title}:{}:{}",
+                app.detail_generation, app.detail_filter
+            ),
+            (app.detail_scroll, if log { app.detail_column } else { 0 }),
+            content,
+            frame.buffer_mut(),
+        ));
     if rows > content.height as usize {
         let mut state = ScrollbarState::new(rows)
             .position(app.detail_scroll)
@@ -571,6 +582,8 @@ SELECT AND SEARCH
   [F3] edits in place: [Enter] applies, [↓] opens results,
   [Esc] restores the previous query, [Del] clears an applied filter.
   Text editors support arrows, Home/End and Ctrl+A/E/U/K/W.
+  Drag across pane/report/log text to select; Ctrl+C or Ctrl+Shift+C copies.
+  Esc clears text selection. Ctrl+C without a text selection quits.
   Filters: name:python  user:alice cpu:>10  !name:rust
   Regex: name:/python|torch/     OR: pid:42 | mem:>1024
   Select a row, then [Enter] opens its pane. Selection alone stays in the table.

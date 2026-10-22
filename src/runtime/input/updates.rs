@@ -2,10 +2,22 @@ use super::Input;
 use crossterm::event::{KeyCode, KeyEvent};
 use rstop::{
     app::App,
-    updates::{self, Phase},
+    updates::{self, Notice, Phase},
 };
 
 impl Input<'_> {
+    pub(super) fn open_update_dialog(&mut self, app: &mut App) {
+        app.dialog.scroll = 0;
+        app.update_notice = Some(if let Some(release) = &self.updating_release {
+            let mut notice = Notice::new(release.clone());
+            notice.phase = Phase::Installing;
+            notice
+        } else {
+            self.update_check_requested = true;
+            Notice::checking()
+        });
+    }
+
     pub(super) fn update_key(&mut self, app: &mut App, mut key: KeyEvent) {
         if let KeyCode::Char(c) = key.code {
             key.code = KeyCode::Char(c.to_ascii_lowercase());
@@ -13,8 +25,10 @@ impl Input<'_> {
         let Some(mut notice) = app.update_notice.take() else {
             return;
         };
-        if matches!(notice.phase, Phase::Installing) && key.code != KeyCode::Char('r') {
-            if matches!(key.code, KeyCode::Esc | KeyCode::Char('i')) {
+        if matches!(notice.phase, Phase::Checking | Phase::Installing)
+            && key.code != KeyCode::Char('r')
+        {
+            if matches!(key.code, KeyCode::Esc | KeyCode::Char('i') | KeyCode::Enter) {
                 return;
             }
             app.update_notice = Some(notice);
@@ -27,7 +41,9 @@ impl Input<'_> {
             return;
         }
         if key.code == KeyCode::Char('r') {
-            if super::menu::open_url(&notice.release.html_url, self.action_tx.clone()).is_err() {
+            if !notice.release.html_url.is_empty()
+                && super::menu::open_url(&notice.release.html_url, self.action_tx.clone()).is_err()
+            {
                 app.status = "Browser unavailable; open the release URL above".into();
             }
             app.update_notice = Some(notice);
@@ -43,13 +59,13 @@ impl Input<'_> {
             app.update_notice = Some(notice);
             return;
         }
-        if matches!(notice.phase, Phase::Installed(_)) {
+        if matches!(notice.phase, Phase::Installed(_) | Phase::UpToDate) {
             if !matches!(key.code, KeyCode::Enter | KeyCode::Esc | KeyCode::Char('i')) {
                 app.update_notice = Some(notice);
             }
             return;
         }
-        let count = if matches!(notice.phase, Phase::Failed(_)) {
+        let count = if matches!(notice.phase, Phase::Failed(_) | Phase::CheckFailed(_)) {
             2
         } else {
             3
@@ -78,12 +94,18 @@ impl Input<'_> {
             _ => None,
         };
         match action {
-            Some(0) if !self.read_only => {
+            Some(0) if matches!(notice.phase, Phase::CheckFailed(_)) => {
+                self.open_update_dialog(app);
+                return;
+            }
+            Some(0) if !self.read_only && !app.replay => {
                 notice.phase = Phase::Installing;
+                self.updating_release = Some(notice.release.clone());
                 updates::install_background(notice.release.clone(), self.update_tx.clone());
             }
             Some(0) => {
-                notice.phase = Phase::Failed("Updates are disabled in read-only mode".into())
+                notice.phase =
+                    Phase::Failed("Updates are disabled in read-only mode or replay".into())
             }
             Some(1) => return,
             Some(2) if !self.read_only => {

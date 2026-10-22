@@ -41,11 +41,15 @@ impl Release {
 #[derive(Debug)]
 pub enum Event {
     Available(Release),
+    Checked(std::result::Result<Release, String>),
     Installed(std::result::Result<String, String>),
 }
 
 #[derive(Clone, Debug)]
 pub enum Phase {
+    Checking,
+    UpToDate,
+    CheckFailed(String),
     Available,
     Installing,
     Installed(String),
@@ -60,12 +64,60 @@ pub struct Notice {
 }
 
 impl Notice {
+    pub fn checking() -> Self {
+        Self {
+            phase: Phase::Checking,
+            ..Self::new(Release::default())
+        }
+    }
+
+    pub fn finish_check(&mut self, result: std::result::Result<Release, String>) {
+        self.selected = 0;
+        self.phase = match result {
+            Ok(release) => {
+                let eligible = !release.draft
+                    && !release.prerelease
+                    && semver::Version::parse(release.version())
+                        .is_ok_and(|version| version.pre.is_empty())
+                    && release.html_url == format!("{RELEASES}{}", release.tag_name);
+                if !eligible {
+                    Phase::CheckFailed("GitHub returned an invalid stable release.".into())
+                } else {
+                    let newer = release.newer_than(env!("CARGO_PKG_VERSION"));
+                    self.release = release;
+                    if newer {
+                        Phase::Available
+                    } else {
+                        Phase::UpToDate
+                    }
+                }
+            }
+            Err(error) => Phase::CheckFailed(error),
+        };
+    }
+
     pub fn new(release: Release) -> Self {
         Self {
             release,
             phase: Phase::Available,
             selected: 0,
         }
+    }
+}
+
+pub fn check_once_background(sender: mpsc::Sender<Event>) {
+    let spawn = thread::Builder::new()
+        .name("rstop-manual-update-check".into())
+        .spawn({
+            let sender = sender.clone();
+            move || {
+                let result =
+                    latest().map_err(|error| format!("Could not check for updates: {error:#}"));
+                let _ = sender.send(Event::Checked(result));
+            }
+        });
+    if let Err(error) = spawn {
+        let _ = sender.send(Event::Checked(Err(error.to_string())));
     }
 }
 
@@ -175,5 +227,42 @@ mod tests {
     #[test]
     fn upgrade_is_the_default_choice() {
         assert_eq!(Notice::new(Release::default()).selected, 0);
+    }
+
+    #[test]
+    fn manual_checks_report_available_current_invalid_and_failed_results() {
+        let mut notice = Notice::checking();
+        let release = |version: &str| Release {
+            tag_name: format!("v{version}"),
+            html_url: format!("{RELEASES}v{version}"),
+            ..Default::default()
+        };
+        assert!(matches!(notice.phase, Phase::Checking));
+        notice.finish_check(Ok(release("99.0.0")));
+        assert!(matches!(notice.phase, Phase::Available));
+        assert_eq!(notice.release.version(), "99.0.0");
+        for version in [env!("CARGO_PKG_VERSION"), "0.0.1"] {
+            notice.finish_check(Ok(release(version)));
+            assert!(matches!(notice.phase, Phase::UpToDate));
+        }
+        notice.finish_check(Err("Network unavailable".into()));
+        assert!(
+            matches!(&notice.phase, Phase::CheckFailed(error) if error == "Network unavailable")
+        );
+        for invalid in [
+            Release::default(),
+            release("invalid"),
+            Release {
+                html_url: "https://example.com".into(),
+                ..release("99.0.0")
+            },
+            Release {
+                prerelease: true,
+                ..release("99.0.0")
+            },
+        ] {
+            notice.finish_check(Ok(invalid));
+            assert!(matches!(notice.phase, Phase::CheckFailed(_)));
+        }
     }
 }

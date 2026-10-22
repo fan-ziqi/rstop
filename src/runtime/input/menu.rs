@@ -64,6 +64,7 @@ impl Input<'_> {
                 app.help = true;
                 app.detail_scroll = 0;
             }
+            Some(MenuAction::CheckUpdates) => self.open_update_dialog(app),
             Some(MenuAction::Quit) => return false,
             None => {}
         }

@@ -187,7 +187,7 @@ fn main_menu_and_project_links_fit_small_terminals_and_accessible_modes() {
                     .map(|cell| cell.symbol())
                     .collect::<String>();
                 let menu = app.main_menu.as_ref().unwrap();
-                assert_eq!(menu.hitboxes.len(), 3);
+                assert_eq!(menu.hitboxes.len(), MenuAction::ALL.len());
                 assert_eq!(menu.links.len(), 3);
                 for pair in menu.hitboxes.windows(2) {
                     assert_eq!(pair[0].0.x, pair[1].0.x);

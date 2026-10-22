@@ -6,6 +6,10 @@ mod mouse;
 mod popup_tests;
 mod ros;
 mod signals;
+#[cfg(test)]
+mod text_tests;
+#[cfg(test)]
+mod update_tests;
 mod updates;
 use super::inspect::{
     additional, inspect, inspect_process_extra, load_logs, load_resource_detail, open_report, task,
@@ -30,6 +34,8 @@ pub(super) struct Input<'a> {
     pub detail_tx: mpsc::Sender<(u64, String, String)>,
     pub action_tx: mpsc::Sender<String>,
     pub update_tx: mpsc::Sender<rstop::updates::Event>,
+    pub update_check_requested: bool,
+    pub updating_release: Option<rstop::updates::Release>,
     pub path: &'a PathBuf,
     pub read_only: bool,
     pub replay_index: &'a AtomicUsize,
@@ -67,9 +73,20 @@ impl Input<'_> {
             app.dialog.error.clear();
             app.dialog.scroll = 0;
         }
-        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-            return false;
+        if matches!(key.code, KeyCode::Char('c' | 'C'))
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            if let Some(text) = app.text_selection.selected_text() {
+                app.clipboard_request = Some(text);
+                return true;
+            }
+            return key.modifiers.contains(KeyModifiers::SHIFT);
         }
+        if key.code == KeyCode::Esc && app.text_selection.selected_text().is_some() {
+            app.text_selection.clear();
+            return true;
+        }
+        app.text_selection.clear();
         if key.code == KeyCode::F(10) {
             return false;
         }
@@ -907,6 +924,8 @@ mod tests {
             detail_tx,
             action_tx,
             update_tx,
+            update_check_requested: false,
+            updating_release: None,
             path,
             read_only: false,
             replay_index: &replay,

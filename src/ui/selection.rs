@@ -158,7 +158,7 @@ struct Content {
     tags: Vec<Tag>,
     tag_line: usize,
 }
-fn content(app: &App, p: Palette) -> Option<Content> {
+fn content(app: &App, width: u16, p: Palette) -> Option<Content> {
     let mut record = record(app)?;
     let heading = |text: &str| Line::styled(text.to_owned(), Style::new().fg(p.muted));
     let mut lines: Vec<_> = clean(&record.name)
@@ -185,31 +185,28 @@ fn content(app: &App, p: Palette) -> Option<Content> {
         && let Some(process) = app.selected_process()
     {
         lines.push(heading("TABLE FIELDS"));
+        let mut rows = vec![];
         for column in &app.visible_columns {
             if ["command", "tags"].contains(&column.as_str()) {
                 continue;
             }
-            lines.push(Line::raw(format!(
-                "{}: {}",
+            rows.push((
                 crate::fields::column_label(column),
-                clean(&process_value(app, process, column))
-            )));
+                clean(&process_value(app, process, column)),
+            ));
         }
+        lines.extend(field_table(&rows, width, p));
         lines.push(Line::raw(""));
     }
     lines.push(heading("ALL SAMPLED FIELDS"));
     if let Some(fields) = record.value.as_object_mut() {
         fields.remove("tags");
         fields.remove("command");
+        let mut rows = vec![];
         for (key, value) in fields {
-            let value = if let Some(text) = value.as_str() {
-                text.to_string()
-            } else {
-                crate::fields::pretty(value)
-            };
-            lines.push(Line::styled(format!("{key}:"), Style::new().fg(p.muted)));
-            lines.extend(clean(&value).lines().map(|line| Line::raw(line.to_owned())));
+            sampled_fields(key, value, &mut rows);
         }
+        lines.extend(field_table(&rows, width, p));
     }
     Some(Content {
         title: record.title,
@@ -217,6 +214,76 @@ fn content(app: &App, p: Palette) -> Option<Content> {
         tags: record.tags,
         tag_line,
     })
+}
+
+fn sampled_fields(key: &str, value: &Value, rows: &mut Vec<(String, String)>) {
+    if let Value::Object(fields) = value
+        && !fields.is_empty()
+    {
+        for (name, value) in fields {
+            sampled_fields(&format!("{key} / {name}"), value, rows);
+        }
+    } else {
+        rows.push((key.to_owned(), clean(&crate::fields::value(value, key))));
+    }
+}
+
+/// Wrap each cell independently so a continuation stays in its own column.
+fn field_table(rows: &[(String, String)], width: u16, p: Palette) -> Vec<Line<'static>> {
+    let width = width.max(5) as usize;
+    // Both sections use identical column geometry, independent of their keys.
+    let key_width = (width * 2 / 5).clamp(1, 24);
+    let value_width = width.saturating_sub(key_width + 3).max(1);
+    let mut lines = vec![Line::styled(
+        format!("{:<key_width$} │ Value", "Field"),
+        Style::new().fg(p.muted),
+    )];
+    lines.push(Line::styled(
+        format!("{}─┼─{}", "─".repeat(key_width), "─".repeat(value_width)),
+        Style::new().fg(p.border),
+    ));
+    for (key, value) in rows {
+        let keys = wrap_cell(key, key_width as u16);
+        let values = wrap_cell(value, value_width as u16);
+        for index in 0..keys.len().max(values.len()) {
+            let key = keys.get(index).map(String::as_str).unwrap_or("");
+            let value = values.get(index).cloned().unwrap_or_default();
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!(
+                        "{key}{}",
+                        " ".repeat(key_width.saturating_sub(Line::raw(key).width()))
+                    ),
+                    Style::new().fg(p.muted),
+                ),
+                Span::styled(" │ ", Style::new().fg(p.border)),
+                Span::raw(value),
+            ]));
+        }
+    }
+    lines
+}
+
+fn wrap_cell(text: &str, width: u16) -> Vec<String> {
+    let paragraph = Paragraph::new(text)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: false });
+    let height = paragraph.line_count(width).max(1).min(u16::MAX as usize) as u16;
+    let area = Rect::new(0, 0, width, height);
+    let mut buffer = Buffer::empty(area);
+    paragraph.render(area, &mut buffer);
+    (0..height)
+        .map(|y| {
+            let mut row = String::new();
+            let mut x = 0;
+            while x < width {
+                let symbol = buffer[(x, y)].symbol();
+                row.push_str(symbol);
+                x += Line::raw(symbol).width().max(1) as u16;
+            }
+            row.trim_end().to_owned()
+        })
+        .collect()
 }
 
 /// Wide windows use the right side; compact windows retain a scrollable lower preview.
@@ -242,7 +309,7 @@ pub(super) fn draw(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     if !app.selection_open {
         return;
     }
-    let Some(content) = content(app, p) else {
+    let Some(content) = content(app, area.width.saturating_sub(3), p) else {
         return;
     };
     draw_content(frame, area, app, p, content);
@@ -250,7 +317,7 @@ pub(super) fn draw(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
 
 fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut content: Content) {
     let b = block(format!(" {} · Selected ", content.title), p, p.blue).title_bottom(Line::styled(
-        " Wheel / Alt+↑↓ · [d] Full details · [Enter/Esc] Close ",
+        " Drag to select · Ctrl+C Copy · Wheel Scroll ",
         Style::new().fg(p.muted),
     ));
     let inner = b.inner(area);
@@ -283,6 +350,16 @@ fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut co
         widget.scroll((app.selection_scroll.min(u16::MAX as usize) as u16, 0)),
         text_area,
     );
+    app.text_regions
+        .push(crate::app::text_selection::TextRegion::capture(
+            format!(
+                "selection:{:?}:{:?}:{:?}:{:?}",
+                app.view, app.selected_process, app.selected_connection, app.selected_workload
+            ),
+            (app.selection_scroll, 0),
+            text_area,
+            frame.buffer_mut(),
+        ));
     for (index, row) in badge_rows.iter().enumerate() {
         let line = badge_start + index;
         if line < app.selection_scroll || line >= app.selection_scroll + app.selection_viewport {
@@ -311,14 +388,78 @@ fn draw_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, mut co
 }
 
 pub(super) fn with_pane(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) -> Rect {
-    if app.selection_open
-        && area.height >= 9
-        && let Some(content) = content(app, p)
-    {
+    if app.selection_open && area.height >= 9 {
         let (table, detail) = split(area);
-        draw_content(frame, detail, app, p, content);
-        table
-    } else {
-        area
+        if let Some(content) = content(app, detail.width.saturating_sub(3), p) {
+            draw_content(frame, detail, app, p, content);
+            return table;
+        }
+    }
+    area
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scalar_and_nested_values_start_at_the_left_edge_of_the_same_value_column() {
+        let mut rows = vec![];
+        sampled_fields("pid", &serde_json::json!(42), &mut rows);
+        sampled_fields(
+            "extra",
+            &serde_json::json!({"long_nested_field": {"count": 17}}),
+            &mut rows,
+        );
+        assert_eq!(
+            rows,
+            [
+                ("pid".into(), "42".into()),
+                ("extra / long_nested_field / count".into(), "17".into())
+            ]
+        );
+        let palette = super::super::palette("default");
+        for width in [37, 60, 87] {
+            let lines = field_table(&rows, width, palette);
+            let short = field_table(&[("PID".into(), "42".into())], width, palette);
+            let value_column = short[2].to_string().find("42").unwrap();
+            for expected in ["42", "17"] {
+                let line = lines
+                    .iter()
+                    .find(|line| line.to_string().contains(expected))
+                    .unwrap()
+                    .to_string();
+                assert_eq!(line.find(expected), Some(value_column));
+            }
+        }
+    }
+
+    #[test]
+    fn long_keys_and_unicode_values_keep_separate_columns_at_every_width() {
+        let rows = vec![
+            ("short".into(), "alpha".into()),
+            (
+                "a_very_long_sampled_field_name".into(),
+                "甲乙👩‍💻e\u{301}abcdefghijklmnopqrstuvwxyz\nsecond line".into(),
+            ),
+            ("empty".into(), String::new()),
+        ];
+        for width in [24, 37, 60, 87] {
+            let lines = field_table(&rows, width, super::super::palette("default"));
+            let mut separator = None;
+            let mut values = String::new();
+            for line in lines {
+                assert!(line.width() <= width as usize, "{width}: {line}");
+                let text = line.to_string();
+                if let Some((key, value)) = text.split_once(" │ ") {
+                    let column = Line::raw(key).width();
+                    assert_eq!(*separator.get_or_insert(column), column);
+                    values.push_str(value);
+                }
+            }
+            assert!(values.contains("甲乙👩‍💻e\u{301}"), "{values}");
+            assert!(values.contains("abcdefghijklmnopqrstuvwxyz"), "{values}");
+            assert!(values.contains("second line"), "{values}");
+        }
     }
 }

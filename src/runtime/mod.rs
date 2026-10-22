@@ -1,3 +1,4 @@
+mod clipboard;
 mod control;
 mod input;
 mod inspect;
@@ -211,6 +212,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         .flatten();
     let mut pending_update = None;
     let mut seen_updates = std::collections::HashSet::new();
+    let mut manual_check_running = false;
     let mut dirty = true;
     let mut log_refresh = Instant::now();
     let mut input_state = input::Input {
@@ -218,6 +220,8 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         detail_tx: detail_tx.clone(),
         action_tx: action_tx.clone(),
         update_tx,
+        update_check_requested: false,
+        updating_release: None,
         path: &path,
         read_only: args.read_only,
         replay_index: &replay_index,
@@ -227,8 +231,23 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         last_escape: None,
         ros_job: None,
     };
+    let mut clipboard = clipboard::Clipboard::default();
     let result = (|| -> Result<()> {
         while !STOP.load(Ordering::Relaxed) {
+            if let Some(text) = app.clipboard_request.take() {
+                app.status = match clipboard.copy(text) {
+                    Ok(message) => {
+                        app.text_selection.clear();
+                        message.into()
+                    }
+                    Err(error) => format!("Copy failed: {error}"),
+                };
+                dirty = true;
+            }
+            if std::mem::take(&mut input_state.update_check_requested) && !manual_check_running {
+                manual_check_running = true;
+                rstop::updates::check_once_background(input_state.update_tx.clone());
+            }
             while let Ok(event) = update_rx.try_recv() {
                 match event {
                     rstop::updates::Event::Available(release) => {
@@ -238,7 +257,22 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                             pending_update = Some(release);
                         }
                     }
+                    rstop::updates::Event::Checked(result) => {
+                        manual_check_running = false;
+                        if let Some(notice) = &mut app.update_notice
+                            && matches!(notice.phase, rstop::updates::Phase::Checking)
+                        {
+                            notice.finish_check(result);
+                            if matches!(notice.phase, rstop::updates::Phase::Available) {
+                                seen_updates.insert(notice.release.version().to_owned());
+                                pending_update = None;
+                            }
+                            app.dialog.scroll = 0;
+                            dirty = true;
+                        }
+                    }
                     rstop::updates::Event::Installed(result) => {
+                        input_state.updating_release = None;
                         app.status = match &result {
                             Ok(version) => {
                                 format!("Updated to {version}. Restart rstop to use it.")
@@ -409,9 +443,8 @@ fn enable_mouse_capture() -> io::Result<()> {
     {
         let mut stdout = io::stdout().lock();
         execute!(stdout, DisableMouseCapture)?;
-        // Only clicks and wheel events are used; reporting every pointer movement
-        // needlessly fills the input queue and can spill into the shell on exit.
-        stdout.write_all(b"\x1b[?1000h\x1b[?1006h")?;
+        // Button-motion reporting enables text dragging without reporting idle motion.
+        stdout.write_all(b"\x1b[?1000h\x1b[?1002h\x1b[?1006h")?;
         stdout.flush()
     }
     #[cfg(windows)]

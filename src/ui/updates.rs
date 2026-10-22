@@ -9,6 +9,8 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     };
     let stacked = frame.area().width < 82;
     let (status, color) = match &notice.phase {
+        Phase::Checking => ("Checking for updates…".into(), p.muted),
+        Phase::UpToDate => ("You are using the latest version of rstop.".into(), p.mint),
         Phase::Available => ("A new version is available.".into(), p.muted),
         Phase::Installing => (
             "Upgrading in the background. You can close this window.".into(),
@@ -18,7 +20,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
             format!("Updated to {version}. Restart rstop to use the new version."),
             p.mint,
         ),
-        Phase::Failed(error) => (
+        Phase::Failed(error) | Phase::CheckFailed(error) => (
             error
                 .chars()
                 .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
@@ -27,9 +29,10 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
         ),
     };
     let buttons = match &notice.phase {
-        Phase::Installing => vec![(KeyCode::Esc, "Close", 1)],
+        Phase::Checking | Phase::Installing => vec![(KeyCode::Esc, "Close", 1)],
+        Phase::UpToDate => vec![(KeyCode::Enter, "Close", 1)],
         Phase::Installed(_) => vec![(KeyCode::Enter, "Continue monitoring", 1)],
-        Phase::Failed(_) => vec![
+        Phase::Failed(_) | Phase::CheckFailed(_) => vec![
             (KeyCode::Char('u'), "Retry", 0),
             (KeyCode::Char('i'), "Close", 1),
         ],
@@ -65,20 +68,29 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
         Constraint::Length(actions_height),
     ])
     .split(inner);
-    frame.render_widget(
-        Paragraph::new(format!(
+    let version = if matches!(
+        notice.phase,
+        Phase::Checking | Phase::UpToDate | Phase::CheckFailed(_)
+    ) {
+        format!("Current version: {}", env!("CARGO_PKG_VERSION"))
+    } else {
+        format!(
             "{}  →  {}",
             env!("CARGO_PKG_VERSION"),
             notice.release.version()
-        ))
-        .style(Style::new().fg(p.text).bold()),
+        )
+    };
+    frame.render_widget(
+        Paragraph::new(version).style(Style::new().fg(p.text).bold()),
         rows[0],
     );
-    frame.render_widget(
-        Paragraph::new("[r] View release notes").style(Style::new().fg(p.blue).underlined()),
-        rows[2],
-    );
-    app.update_buttons.push((rows[2], 3));
+    if !notice.release.html_url.is_empty() {
+        frame.render_widget(
+            Paragraph::new("[r] View release notes").style(Style::new().fg(p.blue).underlined()),
+            rows[2],
+        );
+        app.update_buttons.push((rows[2], 3));
+    }
     let mut message = rows[4];
     if message_rows > message.height as usize {
         message.height = message.height.saturating_sub(1).max(1);

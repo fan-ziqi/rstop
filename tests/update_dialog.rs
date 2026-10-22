@@ -8,8 +8,15 @@ use rstop::{
 
 #[test]
 fn update_states_keep_their_actions_readable_in_small_terminals() {
-    for width in [60, 84, 140] {
+    for (width, height) in [(60, 18), (60, 24), (84, 24), (140, 24)] {
         for (phase, required, forbidden) in [
+            (Phase::Checking, "Checking for updates", "Upgrade"),
+            (Phase::UpToDate, "latest version", "Upgrade"),
+            (
+                Phase::CheckFailed("Network unavailable".into()),
+                "Retry",
+                "Upgrade",
+            ),
             (Phase::Available, "Upgrade", "Retry"),
             (Phase::Installing, "Upgrading", "Upgrade]"),
             (
@@ -31,7 +38,7 @@ fn update_states_keep_their_actions_readable_in_small_terminals() {
             });
             notice.phase = phase;
             app.update_notice = Some(notice);
-            let mut terminal = Terminal::new(TestBackend::new(width, 24)).unwrap();
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| ui::draw(frame, &mut app)).unwrap();
             let buffer = terminal.backend().buffer();
             let mut text = String::new();

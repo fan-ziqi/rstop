@@ -230,6 +230,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     app.controls.clear();
     app.panel_regions.clear();
     app.panel_focused = true;
+    app.text_regions.clear();
     let detail_area = dialogs::popup(area, 110, 32);
     app.detail_rows = detail_area.height.saturating_sub(2) as usize;
     app.detail_width = detail_area.width.saturating_sub(2);
@@ -253,6 +254,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     } else {
         frame.render_widget(Block::new().style(Style::new().bg(p.bg).fg(p.text)), area);
         if area.width < 60 || area.height < 18 {
+            app.text_selection.clear();
             frame.render_widget(
                 Paragraph::new(
                     "rstop\n\nResize to at least 60 × 18\nRecommended: 140 × 44\n\n[q] / [Ctrl+C] Quit · [Esc] Menu\nPress Esc twice quickly to quit",
@@ -468,7 +470,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 if !value.is_ascii() {
                     let mapped = match value {
                         '─' | '━' => '-',
-                        '│' => '|',
+                        '│' | '┼' => '|',
                         '╭' | '╮' | '╰' | '╯' => '+',
                         '↑' => '^',
                         '↓' => 'v',
@@ -495,6 +497,27 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             }
         }
     }
+    if app.update_notice.is_some()
+        || app.prompt.is_some()
+        || app.signal.is_some()
+        || app.ui_menu.is_some()
+        || app.action_menu.is_some()
+        || app.settings
+        || (app.main_menu.is_some() || app.gpu_info_open()) && app.detail.is_none() && !app.help
+    {
+        app.text_regions.clear();
+    }
+    // Capture the final glyphs (including ASCII mode), before painting selection.
+    for region in &mut app.text_regions {
+        *region = crate::app::text_selection::TextRegion::capture(
+            region.id.clone(),
+            region.offset,
+            region.buffer.area,
+            frame.buffer_mut(),
+        );
+    }
+    app.text_selection
+        .render(frame.buffer_mut(), &app.text_regions);
 }
 
 fn context_message(app: &App) -> String {

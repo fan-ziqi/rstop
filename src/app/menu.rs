@@ -5,16 +5,18 @@ use ratatui::layout::Rect;
 pub enum MenuAction {
     Settings,
     Help,
+    CheckUpdates,
     Quit,
 }
 
 impl MenuAction {
-    pub const ALL: [Self; 3] = [Self::Settings, Self::Help, Self::Quit];
+    pub const ALL: [Self; 4] = [Self::Settings, Self::Help, Self::CheckUpdates, Self::Quit];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Settings => "Settings",
             Self::Help => "Help",
+            Self::CheckUpdates => "Check for updates",
             Self::Quit => "Quit",
         }
     }
@@ -23,6 +25,7 @@ impl MenuAction {
         match self {
             Self::Settings => KeyCode::F(2),
             Self::Help => KeyCode::F(1),
+            Self::CheckUpdates => KeyCode::Char('u'),
             Self::Quit => KeyCode::Char('q'),
         }
     }
