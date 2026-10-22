@@ -29,7 +29,7 @@ impl Plan {
                 .collect::<Vec<_>>()
                 .join("\n"),
             if self.changes_state {
-                "[y] Confirm · [Esc] Cancel. Existing permissions apply; rstop never invokes sudo."
+                "[y/Enter] Confirm · [n/Esc] Cancel. Existing permissions apply; rstop never invokes sudo."
             } else {
                 "Enter to inspect."
             }

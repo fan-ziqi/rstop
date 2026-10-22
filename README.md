@@ -96,9 +96,9 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | Keys | Action |
 |---|---|
 | `1`–`8`, `←/→`, `Tab/Shift+Tab` | Change page |
-| `↑/↓`, `j/k`, `PgUp/PgDn`, `Home/End` | Select or scroll |
+| `↑/↓`, `Alt+j/k`, `PgUp/PgDn`, `Home/End` | Select or scroll |
 | `F3`, `f`, `/` | Edit the focused table's inline filter |
-| `F4`, `s` | Sort chooser, including reverse order; `P`/`M` sort by CPU/RAM |
+| `F4` | Sort chooser, including reverse order; `P`/`M` sort by CPU/RAM |
 | `F5` | View, panel focus, chart window, zoom and display options |
 | `[`, `]` | Previous GPU (`[`) or next GPU (`]`); click Prev/Next on the Overview GPU card or use `F5` |
 | `Enter`, `d`, `F6` | Open/close detail pane; full details; contextual tools |
@@ -108,9 +108,10 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `F1`, `:` | Help; all commands |
 | `F2`, `c`, `w` | Settings; theme; save configuration |
 | `C`, `Shift+←/→` | Process columns; move the visible column window |
-| `t`, `Ctrl+←/→` | Process tree; collapse/expand |
-| `v`, `V`, `U` | Mark process, mark subtree, clear marks |
-| `F9`, `n`, `a` | Signal, nice or affinity for the selected process |
+| `T`, `Ctrl+←/→` | Process tree; collapse/expand |
+| `Space`/`v`, `V`, `U` | Mark process, mark subtree, clear marks |
+| `k`/`K`, `t`, `s`/`F9` | Kill (SIGKILL), terminate (SIGTERM), or choose a signal for selected/marked processes |
+| `n`/`N`, `a` | Set process priority (nice) or CPU affinity |
 | `Y`, `R`, `O` | Label actions; resource diagnosis/trends/alerts; extra sampled information |
 | `Esc`, `Del` | Close/unselect/clear filter/open menu; clear an applied filter |
 | `q`, `Ctrl+C`, quick `Esc` `Esc` | Quit and restore the terminal (`q` is text while editing) |
@@ -120,6 +121,10 @@ Press `Esc` twice within 500 ms to quit from any screen. A single `Esc` keeps it
 Click or scroll over a table to focus it. Network keeps both tables on one page, with independent filters, sorting and scrolling. GPU Device info opens in a separate searchable popup. Headers sort; right-click opens tools; double-click opens details. Inactive buttons keep the surrounding background, the current page has an accent outline, and filled highlights identify selected rows.
 
 Process selection starts empty. Click a row or press ↑/↓ to select; press Enter or double-click to open its detail pane. Press Enter again to close the pane and keep the row selected. This also applies to connections, services and containers. Esc closes the pane before clearing selection; selecting another row closes it. Wheel scrolling moves the process viewport without changing the PID. Selection holds row order while values update; explicit sorting applies the new order. The detail pane shows CPU/RAM, attributed GPU/VRAM, I/O and histories starting at selection time. Exit, PID reuse or filtering clears selection. Scroll the pane with its mouse wheel or `Alt+↑/↓`, `Alt+PgUp/PgDn`, `Alt+Home/End`. Use `d` for full details, `F6` for tools, or `:` for all commands. The bottom action bar wraps on narrow terminals to keep resource actions visible.
+
+Process shortcuts follow [btop's kill and priority actions](https://github.com/aristocratos/btop/blob/main/src/btop_menu.cpp) and [nvitop's terminate/kill actions](https://github.com/XuehaiPan/nvitop#keybindings-for-monitor-mode). `k`/`K`, `t` and `s`/`F9` preview fixed targets from the process list or process details; confirm with `Enter`/`y` or cancel with `Esc`/`n`. The signal dialog lists every signal supported by the current platform: arrows move the visible highlight, `Home`/`End` jump to first/last, and `PgUp`/`PgDn` page through the grid. Click or scroll to select; `Tab`/`Shift+Tab` select the next/previous signal, and `Alt+↑/↓` scrolls batch targets. `i/t/k/s/c` select interrupt/terminate/kill/stop/continue where supported, with uppercase aliases. `T` opens tree view, `F4` opens sorting, and `Ctrl+C` quits. Use `Alt+k` or ↑ to move up or scroll details. Read-only and replay disable process changes.
+
+Popups support arrow/Tab navigation, page scrolling and clickable Back/Cancel controls. Settings apply as a preview; use `←/→` or the row's arrow buttons to adjust and `w` to save. Invalid form entries stay open with an inline error. Reports and help show scroll positions and a separate `/` search field. Workload and tracing confirmations use `y`/`Enter` to confirm and `n`/`Esc` to cancel; long previews can be scrolled before confirming.
 
 Filters update in place as you type. Enter/↓ apply; Esc restores the previous query. Editors support cursor movement, Home/End, deletion and `Ctrl+A/E/U/K/W`. Examples:
 

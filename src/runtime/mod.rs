@@ -239,7 +239,14 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                         }
                     }
                     rstop::updates::Event::Installed(result) => {
+                        app.status = match &result {
+                            Ok(version) => {
+                                format!("Updated to {version}. Restart rstop to use it.")
+                            }
+                            Err(error) => format!("Update failed: {error}"),
+                        };
                         if let Some(notice) = &mut app.update_notice {
+                            app.dialog.scroll = 0;
                             notice.phase = match result {
                                 Ok(version) => rstop::updates::Phase::Installed(version),
                                 Err(error) => rstop::updates::Phase::Failed(error),
@@ -263,6 +270,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 && app.signal.is_none()
             {
                 app.update_notice = pending_update.take().map(rstop::updates::Notice::new);
+                app.dialog.scroll = 0;
                 input_state.queued_key = None;
                 input_state.last_click = None;
                 dirty = true;

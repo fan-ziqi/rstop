@@ -1,9 +1,11 @@
 pub mod commands;
+pub mod dialogs;
 pub mod editor;
 pub mod menu;
 pub mod panes;
 mod processes;
 pub mod ros;
+pub mod signals;
 mod sort;
 pub mod tag_context;
 use crate::{config::Config, model::*};
@@ -199,6 +201,8 @@ pub struct App {
     /// Outer bounds of the topmost popup, registered by its renderer each frame.
     pub popup_rect: ratatui::layout::Rect,
     pub popup_actions: Vec<(ratatui::layout::Rect, crossterm::event::KeyCode)>,
+    pub dialog: dialogs::State,
+    pub signal_ui: signals::State,
     pub action_results: std::sync::Arc<std::sync::Mutex<VecDeque<String>>>,
     pub detail: Option<(String, String)>,
     pub detail_scroll: usize,
@@ -316,6 +320,8 @@ impl App {
             follow_logs: false,
             signal: None,
             popup_actions: vec![],
+            dialog: Default::default(),
+            signal_ui: Default::default(),
             status: "Discovering host…".into(),
             graph_window,
             table_offset: 0,

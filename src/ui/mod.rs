@@ -6,6 +6,7 @@ mod main_menu;
 pub mod network;
 mod overview;
 mod panes;
+mod popups;
 mod processes;
 mod resources;
 mod selection;
@@ -218,6 +219,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
     app.popup_rect = Rect::default();
     app.popup_actions.clear();
+    app.dialog.reset_geometry();
     app.update_buttons.clear();
     app.tab_ranges.clear();
     app.label_hits.clear();
@@ -342,67 +344,15 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 .collect::<Vec<_>>()
                 .join("\n")
         };
-        let search = if app.detail_search || !app.detail_filter.is_empty() {
-            format!(
-                " · / {}{}",
-                if app.detail_search {
-                    app.editor.display(&app.detail_filter)
-                } else {
-                    app.detail_filter.clone()
-                },
-                ""
-            )
-        } else {
-            String::new()
-        };
-        let follow = if app.log_target.is_some() {
-            if app.follow_logs {
-                " · LIVE · [f] Pause · [p] File"
-            } else {
-                " · PAUSED · [f] Follow · [p] File"
-            }
-        } else {
-            ""
-        };
-        let title = format!("{title}{follow}{search}");
+        let title = title.clone();
         if app.log_target.is_some() {
-            app.popup_rect = log_detail(
-                frame,
-                &title,
-                &body,
-                app.detail_scroll,
-                app.detail_column,
-                p,
-            );
+            app.popup_rect = log_detail(frame, app, &title, &body, p);
         } else {
-            app.popup_rect = detail(frame, &title, &body, app.detail_scroll, p);
+            app.popup_rect = detail(frame, app, &title, &body, p);
         }
     }
-    if let Some(target) = &app.signal {
-        let targets = if app.signal_targets.is_empty() {
-            vec![target.clone()]
-        } else {
-            app.signal_targets.clone()
-        };
-        let names = targets
-            .iter()
-            .map(|p| format!("  {:>8}  {}", p.pid, p.name))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let message = format!(
-            "Send {:?} to {} process(es)?\n\n[↑↓] Choose signal · [PgUp/PgDn] Scroll targets\nPID and start time are rechecked for every target.\n\n[y] Confirm · [Esc] Cancel\n\n{}",
-            target.signal,
-            targets.len(),
-            names
-        );
-        app.popup_rect = dialogs::notice(
-            frame,
-            " Confirm process signal ",
-            &message,
-            app.detail_scroll,
-            " [↑↓] Signal · [y] Confirm · [Esc] Cancel ",
-            p,
-        );
+    if app.signal.is_some() {
+        popups::signal(frame, app, p);
     }
     if let Some((items, selected)) = &app.action_menu {
         let labels = items
@@ -416,23 +366,39 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 )
             })
             .collect::<Vec<_>>();
-        let (rect, offset, outer) = menu(frame, "Workload tools", &labels, *selected, p);
+        app.popup_actions.clear();
+        let (rect, offset, outer, back) = menu(
+            frame,
+            "Workload tools",
+            &labels,
+            *selected,
+            app.action_menu_offset,
+            crate::app::MenuKind::Actions,
+            p,
+        );
         app.popup_rect = outer;
         app.action_menu_rect = rect;
         app.action_menu_offset = offset;
+        app.popup_actions
+            .push((back, crossterm::event::KeyCode::Esc));
     }
     if let Some(m) = &mut app.ui_menu {
-        let (rect, offset, outer) = menu(frame, &m.title, &m.items, m.selected, p);
+        app.popup_actions.clear();
+        let (rect, offset, outer, back) =
+            menu(frame, &m.title, &m.items, m.selected, m.offset, m.kind, p);
         app.popup_rect = outer;
         m.rect = rect;
         m.offset = offset;
+        app.popup_actions
+            .push((back, crossterm::event::KeyCode::Esc));
     }
-    if let Some((kind, value, _)) = &app.prompt {
+    if let Some((kind, _, _)) = &app.prompt {
         if app.detail.is_some() {
             controls::dim(frame);
         }
-        let value = app.editor.display(value);
         let hint = match kind.as_str() {
+            "nice" => "-20 (highest priority) to 19 (lowest). Existing permissions apply.",
+            "affinity" => "CPU numbers or ranges, e.g. 0-3,6. Existing permissions apply.",
             "network target" => {
                 "Website: https://example.com · TCP service: localhost:3000 · Enter runs a bounded connection check."
             }
@@ -451,7 +417,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             "capture output" => {
                 "New PCAP output path. Existing files will not be overwritten. A preview follows before capture starts."
             }
-            "capture confirm" => "Type yes (or y) to start capture; [Esc] cancels.",
+            "capture confirm" => "[y/Enter] Start capture · [n/Esc] Cancel",
             "log file" => "Enter the path of a regular log file to follow.",
             "I/O priority" => {
                 "none · idle · best-effort 0..7 · realtime 0..7. Applies to the selected PID after Enter; existing permissions apply."
@@ -459,49 +425,37 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             "autogroup nice" => {
                 "-20..19. Affects every process in the selected process's autogroup after Enter; existing permissions apply."
             }
-            "trace" | "stack" => "Type yes to attach. The selected process may briefly stop.",
+            "trace" | "stack" => "The selected process may briefly stop while attaching.",
             _ => "Changes apply only after Enter.",
         };
-        app.popup_rect = dialogs::notice(
-            frame,
-            kind,
-            &format!("{kind}\n\n{value}\n\n{hint}"),
-            0,
-            " [Enter] Continue · [Esc] Cancel ",
-            p,
-        );
-    }
-    if let Some(capture) = &app.capture
-        && app
-            .prompt
-            .as_ref()
-            .is_some_and(|(kind, _, _)| kind == "capture confirm")
-    {
-        app.popup_rect = dialogs::notice(
-            frame,
-            "CONFIRM PACKET CAPTURE",
-            &capture.preview(),
-            0,
-            " [y] Start capture · [Esc] Cancel ",
-            p,
-        );
-    }
-    if let Some(plan) = &app.pending_plan
-        && let Some((_, value, _)) = &app.prompt
-    {
-        app.popup_rect = dialogs::notice(
-            frame,
-            "Confirm workload action",
-            &format!(
-                "{}
-
-> {value}▏",
-                plan.preview()
-            ),
-            0,
-            " [y] Confirm · [Esc] Cancel ",
-            p,
-        );
+        if let Some(plan) = &app.pending_plan {
+            let body = plan.preview();
+            popups::confirm(frame, app, "Confirm workload action", &body, p);
+        } else if kind == "capture confirm" {
+            if let Some(capture) = &app.capture {
+                let body = capture.preview();
+                popups::confirm(frame, app, "Confirm packet capture", &body, p);
+            }
+        } else if matches!(kind.as_str(), "trace" | "stack") {
+            let (kind, _, target) = app.prompt.as_ref().unwrap();
+            let title = if kind == "trace" {
+                "Trace system calls"
+            } else {
+                "Capture backtrace"
+            };
+            let body = target
+                .as_ref()
+                .map(|p| {
+                    format!(
+                        "PID {} · {}\n\nAttaches to this process. It may briefly stop.",
+                        p.pid, p.name
+                    )
+                })
+                .unwrap_or_default();
+            popups::confirm(frame, app, title, &body, p);
+        } else {
+            popups::prompt(frame, app, hint, p);
+        }
     }
     if app.update_notice.is_some() {
         updates::draw(frame, app, p);
@@ -518,6 +472,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                         '╭' | '╮' | '╰' | '╯' => '+',
                         '↑' => '^',
                         '↓' => 'v',
+                        '←' => '<',
+                        '→' => '>',
                         '▸' => '>',
                         '█' | '▏' | '▎' | '▍' | '▌' | '▋' | '▊' | '▉' => '#',
                         '░' => '.',
@@ -701,6 +657,13 @@ fn footer_buttons(
                 "Details"
             },
         ));
+        if app.has_process_table() && app.selected_process().is_some() {
+            items.extend([
+                (key(K::Char('k')), "Kill"),
+                (key(K::Char('t')), "Terminate"),
+                (key(K::Char('s')), "Signal"),
+            ]);
+        }
         // Keep every resource action visible. Narrow terminals wrap instead of
         // silently dropping actions; extra global shortcuts use spare cells.
         items.push(quit);

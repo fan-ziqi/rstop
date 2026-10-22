@@ -299,7 +299,7 @@ impl Capture {
     }
     pub fn preview(&self) -> String {
         format!(
-            "Capture on {} for up to {}s / {} packets\nFilter: {}\nSave: {}\n\nOnly the first 128 bytes of each packet are saved; those bytes can still contain private data.\nNo automatic privilege elevation. A new private PCAP file is created.\n\nCommand: {} (tcpdump backend)\n\n[y] Confirm · [Esc] Cancel",
+            "Capture on {} for up to {}s / {} packets\nFilter: {}\nSave: {}\n\nOnly the first 128 bytes of each packet are saved; those bytes can still contain private data.\nNo automatic privilege elevation. A new private PCAP file is created.\n\nCommand: {} (tcpdump backend)\n\n[y/Enter] Confirm · [n/Esc] Cancel",
             self.interface,
             self.seconds,
             self.packets,

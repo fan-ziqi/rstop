@@ -1,4 +1,9 @@
-use super::{Palette, controls::nav_button, dialogs::popup, wordmark};
+use super::{
+    Palette,
+    controls::nav_button,
+    dialogs::{self, popup},
+    wordmark,
+};
 use crate::{
     app::{
         App,
@@ -24,11 +29,7 @@ pub(super) fn draw(frame: &mut Frame, app: &mut App, p: Palette) {
     menu.links.clear();
     let area = popup(frame.area(), 78, 32);
     app.popup_rect = area;
-    frame.render_widget(Clear, area);
-    frame.render_widget(
-        Block::new().style(Style::new().bg(p.panel).fg(p.text)),
-        area,
-    );
+    dialogs::surface(frame, area, "rstop", p, p.mint);
     let inner = area.inner(Margin::new(2, 1));
     let roomy = inner.height >= 30 && inner.width >= 54;
     let logo_height = wordmark::HEIGHT;

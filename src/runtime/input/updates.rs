@@ -6,11 +6,17 @@ use rstop::{
 };
 
 impl Input<'_> {
-    pub(super) fn update_key(&mut self, app: &mut App, key: KeyEvent) {
+    pub(super) fn update_key(&mut self, app: &mut App, mut key: KeyEvent) {
+        if let KeyCode::Char(c) = key.code {
+            key.code = KeyCode::Char(c.to_ascii_lowercase());
+        }
         let Some(mut notice) = app.update_notice.take() else {
             return;
         };
         if matches!(notice.phase, Phase::Installing) && key.code != KeyCode::Char('r') {
+            if matches!(key.code, KeyCode::Esc | KeyCode::Char('i')) {
+                return;
+            }
             app.update_notice = Some(notice);
             return;
         }
@@ -24,6 +30,16 @@ impl Input<'_> {
             if super::menu::open_url(&notice.release.html_url, self.action_tx.clone()).is_err() {
                 app.status = "Browser unavailable; open the release URL above".into();
             }
+            app.update_notice = Some(notice);
+            return;
+        }
+        if matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
+            let step = app.dialog.rows.max(1);
+            app.dialog.scroll = if key.code == KeyCode::PageUp {
+                app.dialog.scroll.saturating_sub(step)
+            } else {
+                (app.dialog.scroll + step).min(app.dialog.lines.saturating_sub(app.dialog.rows))
+            };
             app.update_notice = Some(notice);
             return;
         }

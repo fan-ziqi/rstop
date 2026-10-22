@@ -6,6 +6,16 @@ impl Input<'_> {
     pub fn mouse(&mut self, app: &mut App, mouse: MouseEvent) {
         self.last_escape = None;
         if app.update_notice.is_some() {
+            if matches!(
+                mouse.kind,
+                MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+            ) {
+                app.dialog.scroll = if mouse.kind == MouseEventKind::ScrollUp {
+                    app.dialog.scroll.saturating_sub(1)
+                } else {
+                    (app.dialog.scroll + 1).min(app.dialog.lines.saturating_sub(app.dialog.rows))
+                };
+            }
             if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
                 if let Some((_, index)) = app
                     .update_buttons
@@ -80,6 +90,35 @@ impl Input<'_> {
         }
         if has_popup
             && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && app.dialog.input.contains((mouse.column, mouse.row).into())
+        {
+            let value = app
+                .prompt
+                .as_ref()
+                .map(|(_, value, _)| value.clone())
+                .unwrap_or_else(|| app.detail_filter.clone());
+            let cursor = ratatui::text::Line::raw(&value[..app.editor.position(&value)]).width();
+            let scroll = cursor.saturating_sub(app.dialog.input.width.saturating_sub(1) as usize);
+            let column = (mouse.column - app.dialog.input.x) as usize + scroll;
+            let mut width = 0;
+            let mut position = value.len();
+            for (index, ch) in value.char_indices() {
+                let next = width + ratatui::text::Line::raw(ch.to_string()).width();
+                if next > column {
+                    position = index;
+                    break;
+                }
+                width = next;
+            }
+            app.editor.cursor = Some(position);
+            if app.prompt.is_none() {
+                app.detail_search = true;
+            }
+            self.last_click = None;
+            return;
+        }
+        if has_popup
+            && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
             && let Some((_, key)) = app
                 .popup_actions
                 .iter()
@@ -136,6 +175,69 @@ impl Input<'_> {
             return;
         }
         if app.prompt.is_some() || app.signal.is_some() {
+            if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+                if let Some((_, signal)) = app
+                    .signal_ui
+                    .hits
+                    .iter()
+                    .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
+                    && let Some(target) = &mut app.signal
+                {
+                    target.signal = *signal;
+                    return;
+                }
+                if let Some((_, code)) = app
+                    .popup_actions
+                    .iter()
+                    .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
+                {
+                    self.queued_key = Some(KeyEvent::new(*code, KeyModifiers::NONE));
+                }
+            } else if app.prompt.is_some()
+                && !app.dialog.content.is_empty()
+                && matches!(
+                    mouse.kind,
+                    MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+                )
+            {
+                self.queued_key = Some(KeyEvent::new(
+                    if mouse.kind == MouseEventKind::ScrollDown {
+                        KeyCode::Down
+                    } else {
+                        KeyCode::Up
+                    },
+                    KeyModifiers::NONE,
+                ));
+            } else if app.signal.is_some()
+                && matches!(
+                    mouse.kind,
+                    MouseEventKind::ScrollDown | MouseEventKind::ScrollUp
+                )
+            {
+                if app
+                    .signal_ui
+                    .targets_rect
+                    .contains((mouse.column, mouse.row).into())
+                {
+                    app.signal_ui.target_scroll = app
+                        .signal_ui
+                        .target_scroll
+                        .saturating_add_signed(if mouse.kind == MouseEventKind::ScrollDown {
+                            1
+                        } else {
+                            -1
+                        });
+                } else {
+                    self.queued_key = Some(KeyEvent::new(
+                        if mouse.kind == MouseEventKind::ScrollDown {
+                            KeyCode::Down
+                        } else {
+                            KeyCode::Up
+                        },
+                        KeyModifiers::NONE,
+                    ));
+                }
+            }
             return;
         }
         if app.gpu_info_open()
@@ -236,14 +338,30 @@ impl Input<'_> {
         }
         if app.settings {
             if app.settings_rect.contains((mouse.column, mouse.row).into()) {
-                let row = mouse.row.saturating_sub(app.settings_rect.y + 3) as usize;
                 if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
-                    app.setting_index =
-                        (app.setting_offset + row).min(rstop::config::Config::SETTINGS_COUNT - 1);
+                    if let Some((_, index, key)) = app
+                        .dialog
+                        .settings_adjust
+                        .iter()
+                        .find(|(rect, _, _)| rect.contains((mouse.column, mouse.row).into()))
+                    {
+                        app.setting_index = *index;
+                        self.queued_key = Some(KeyEvent::new(*key, KeyModifiers::NONE));
+                    } else if let Some((_, index)) = app
+                        .dialog
+                        .settings_rows
+                        .iter()
+                        .find(|(rect, _)| rect.contains((mouse.column, mouse.row).into()))
+                    {
+                        app.setting_index = *index;
+                        app.dialog.settings_message.clear();
+                    }
                 } else if mouse.kind == MouseEventKind::ScrollDown {
+                    app.dialog.settings_message.clear();
                     app.setting_index =
                         (app.setting_index + 1).min(rstop::config::Config::SETTINGS_COUNT - 1);
                 } else if mouse.kind == MouseEventKind::ScrollUp {
+                    app.dialog.settings_message.clear();
                     app.setting_index = app.setting_index.saturating_sub(1);
                 }
             }

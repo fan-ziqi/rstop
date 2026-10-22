@@ -18,6 +18,11 @@ impl Input<'_> {
         let action_tx = &self.action_tx;
         let path = self.path;
         if let Some(mut menu) = app.ui_menu.take() {
+            if menu.items.is_empty() && key.code != KeyCode::Esc {
+                app.ui_menu = Some(menu);
+                return true;
+            }
+            let page = menu.rect.height.max(1) as usize;
             if menu.kind == MenuKind::Columns && key.code == KeyCode::Char(' ') {
                 key.code = KeyCode::Enter;
             }
@@ -26,7 +31,12 @@ impl Input<'_> {
                     .items
                     .iter()
                     .position(|(_, code)| *code != KeyCode::Null && *code == key.code)
+                    .or_else(|| {
+                        let KeyCode::Char(typed) = key.code else { return None; };
+                        menu.items.iter().position(|(_, code)| matches!(code, KeyCode::Char(registered) if registered.eq_ignore_ascii_case(&typed)))
+                    })
             {
+                key.code = menu.items[index].1;
                 if matches!(menu.kind, MenuKind::TagActions | MenuKind::Ros) {
                     menu.selected = index;
                     key.code = KeyCode::Enter;
@@ -58,11 +68,11 @@ impl Input<'_> {
                         app.tag_menu_context = None;
                     }
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::BackTab => {
                     menu.selected = menu.selected.saturating_sub(1);
                     app.ui_menu = Some(menu);
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Tab => {
                     menu.selected = (menu.selected + 1).min(menu.items.len().saturating_sub(1));
                     app.ui_menu = Some(menu);
                 }
@@ -75,11 +85,13 @@ impl Input<'_> {
                     app.ui_menu = Some(menu);
                 }
                 KeyCode::PageDown => {
-                    menu.selected = (menu.selected + 12).min(menu.items.len().saturating_sub(1));
+                    menu.selected = (menu.selected + page).min(menu.items.len().saturating_sub(1));
+                    menu.offset = menu.offset.saturating_add(page);
                     app.ui_menu = Some(menu);
                 }
                 KeyCode::PageUp => {
-                    menu.selected = menu.selected.saturating_sub(12);
+                    menu.selected = menu.selected.saturating_sub(page);
+                    menu.offset = menu.offset.saturating_sub(page);
                     app.ui_menu = Some(menu);
                 }
                 KeyCode::Enter => {
@@ -225,8 +237,10 @@ impl Input<'_> {
                 key.code = KeyCode::Enter;
             }
             match key.code {
-                KeyCode::Up => app.action_menu = Some((items, selected.saturating_sub(1))),
-                KeyCode::Down => {
+                KeyCode::Up | KeyCode::BackTab => {
+                    app.action_menu = Some((items, selected.saturating_sub(1)))
+                }
+                KeyCode::Down | KeyCode::Tab => {
                     let next = (selected + 1).min(items.len().saturating_sub(1));
                     app.action_menu = Some((items, next));
                 }
@@ -237,11 +251,21 @@ impl Input<'_> {
                     app.action_menu = Some((items, last));
                 }
                 KeyCode::PageDown => {
-                    selected = (selected + 12).min(items.len().saturating_sub(1));
+                    app.action_menu_offset = app
+                        .action_menu_offset
+                        .saturating_add(app.action_menu_rect.height.max(1) as usize);
+                    selected = (selected + app.action_menu_rect.height.max(1) as usize)
+                        .min(items.len().saturating_sub(1));
                     app.action_menu = Some((items, selected));
                 }
                 KeyCode::PageUp => {
-                    app.action_menu = Some((items, selected.saturating_sub(12)));
+                    app.action_menu_offset = app
+                        .action_menu_offset
+                        .saturating_sub(app.action_menu_rect.height.max(1) as usize);
+                    app.action_menu = Some((
+                        items,
+                        selected.saturating_sub(app.action_menu_rect.height.max(1) as usize),
+                    ));
                 }
                 KeyCode::Enter => {
                     if let Some((_, plan)) = items.get(selected).cloned() {
@@ -267,11 +291,45 @@ impl Input<'_> {
             return true;
         }
         if let Some((kind, mut value, target)) = app.prompt.take() {
-            if (app.pending_plan.is_some() || kind == "capture confirm")
-                && key.code == KeyCode::Char('y')
+            let confirmation = app.pending_plan.is_some()
+                || matches!(kind.as_str(), "capture confirm" | "trace" | "stack");
+            if confirmation
+                && matches!(
+                    key.code,
+                    KeyCode::Up
+                        | KeyCode::Down
+                        | KeyCode::PageUp
+                        | KeyCode::PageDown
+                        | KeyCode::Home
+                        | KeyCode::End
+                )
+            {
+                let step = if matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
+                    app.dialog.rows.max(1)
+                } else {
+                    1
+                };
+                app.dialog.scroll = match key.code {
+                    KeyCode::Home => 0,
+                    KeyCode::End => app.dialog.lines.saturating_sub(app.dialog.rows),
+                    KeyCode::Up | KeyCode::PageUp => app.dialog.scroll.saturating_sub(step),
+                    _ => (app.dialog.scroll + step)
+                        .min(app.dialog.lines.saturating_sub(app.dialog.rows)),
+                };
+                app.prompt = Some((kind, value, target));
+                return true;
+            }
+            if confirmation
+                && (matches!(key.code, KeyCode::Char('y' | 'Y'))
+                    || key.code == KeyCode::Enter && value != "yes")
             {
                 app.prompt = Some((kind, "yes".into(), target));
                 self.queued_key = Some(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+                return true;
+            }
+            if confirmation && matches!(key.code, KeyCode::Char('n' | 'N')) {
+                app.pending_plan = None;
+                app.capture = None;
                 return true;
             }
             match key.code {
@@ -280,11 +338,69 @@ impl Input<'_> {
                     app.capture = None;
                 }
                 KeyCode::Enter => {
+                    app.dialog.error.clear();
+                    if matches!(
+                        kind.as_str(),
+                        "network target" | "PCAP file" | "folder path" | "log file"
+                    ) && value.trim().is_empty()
+                    {
+                        app.dialog.error = "Enter a value before continuing".into();
+                        app.prompt = Some((kind, value, target));
+                        return true;
+                    }
+                    if matches!(kind.as_str(), "PCAP file" | "log file" | "folder path") {
+                        let path = std::path::Path::new(value.trim());
+                        let valid = if kind == "folder path" {
+                            path.is_dir()
+                        } else {
+                            path.is_file()
+                        };
+                        if !valid {
+                            app.dialog.error = if kind == "folder path" {
+                                "Choose an existing folder"
+                            } else {
+                                "Choose an existing regular file"
+                            }
+                            .into();
+                            app.prompt = Some((kind, value, target));
+                            return true;
+                        }
+                    }
                     if kind.starts_with("capture ") {
                         if app.replay || self.read_only {
                             app.capture = None;
                             app.status = "Packet capture disabled".into();
                         } else if let Some(mut capture) = app.capture.take() {
+                            let error = match kind.as_str() {
+                                "capture interface"
+                                    if value.trim().is_empty()
+                                        || value.trim().len() > 128
+                                        || value.chars().any(char::is_control) =>
+                                {
+                                    Some("Choose a valid interface name")
+                                }
+                                "capture filter"
+                                    if value.len() > 1024
+                                        || value.chars().any(char::is_control) =>
+                                {
+                                    Some("Capture filter must be at most 1024 characters")
+                                }
+                                "capture output"
+                                    if value.trim().is_empty()
+                                        || std::path::Path::new(value.trim()).exists() =>
+                                {
+                                    Some(
+                                        "Choose a new output file; existing files are never overwritten",
+                                    )
+                                }
+                                _ => None,
+                            };
+                            if let Some(error) = error {
+                                app.dialog.error = error.into();
+                                app.prompt = Some((kind, value, target));
+                                app.capture = Some(capture);
+                                return true;
+                            }
                             let next = match kind.as_str() {
                                 "capture interface" => {
                                     capture.interface = value.trim().into();
@@ -309,7 +425,15 @@ impl Input<'_> {
                                             detail_tx.clone(),
                                             move || capture.run(),
                                         ),
-                                        Err(e) => app.status = e.to_string(),
+                                        Err(e) => {
+                                            app.dialog.error = e.to_string();
+                                            app.prompt = Some((
+                                                "capture output".into(),
+                                                capture.output.to_string_lossy().into_owned(),
+                                                None,
+                                            ));
+                                            app.capture = Some(capture);
+                                        }
                                     }
                                     return true;
                                 }
@@ -355,7 +479,7 @@ impl Input<'_> {
                                 let _ = sender.send((generation, plan.title, body));
                             });
                         } else {
-                            app.status = "Action canceled or disabled; type yes to confirm".into();
+                            app.status = "Action canceled or disabled".into();
                         }
                     } else if kind == "log file" && !value.trim().is_empty() && !app.replay {
                         app.detail_generation += 1;
@@ -372,7 +496,7 @@ impl Input<'_> {
                         } else if ["nice", "affinity", "I/O priority", "autogroup nice"]
                             .contains(&kind.as_str())
                         {
-                            app.status = match if kind == "I/O priority" {
+                            let result = if kind == "I/O priority" {
                                 rstop::process_tools::io_priority(&process, &value)
                             } else if kind == "autogroup nice" {
                                 value.parse::<i32>().map_err(anyhow::Error::from).and_then(
@@ -387,10 +511,14 @@ impl Input<'_> {
                                     .and_then(|n| rstop::process_tools::priority(&process, n))
                             } else {
                                 rstop::process_tools::affinity(&process, &value)
-                            } {
-                                Ok(message) => message,
-                                Err(error) => error.to_string(),
                             };
+                            match result {
+                                Ok(message) => app.status = message,
+                                Err(error) => {
+                                    app.dialog.error = error.to_string();
+                                    app.prompt = Some((kind, value, Some(process)));
+                                }
+                            }
                         } else if value == "yes" {
                             let sender = detail_tx.clone();
                             app.detail_generation += 1;
@@ -406,27 +534,56 @@ impl Input<'_> {
                     }
                 }
                 _ => {
-                    app.editor.edit(&mut value, key);
+                    if app.editor.edit(&mut value, key) {
+                        app.dialog.error.clear();
+                    }
                     app.prompt = Some((kind, value, target));
                 }
             }
             return true;
         }
         if let Some(mut target) = app.signal.take() {
-            if matches!(key.code, KeyCode::Up | KeyCode::Down) {
-                let signals = sysinfo::SUPPORTED_SIGNALS;
-                let current = signals
-                    .iter()
-                    .position(|s| *s == target.signal)
-                    .unwrap_or(0);
-                let next = if key.code == KeyCode::Up {
-                    (current + signals.len() - 1) % signals.len()
+            use rstop::app::signals;
+            if app.replay || self.read_only {
+                app.signal_targets.clear();
+                app.status = "Process actions disabled in replay/read-only mode".into();
+                return true;
+            }
+            if key.modifiers.contains(KeyModifiers::ALT)
+                && matches!(
+                    key.code,
+                    KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                )
+            {
+                let step = if matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
+                    3
                 } else {
-                    (current + 1) % signals.len()
+                    1
                 };
-                target.signal = signals[next];
+                app.signal_ui.target_scroll = app.signal_ui.target_scroll.saturating_add_signed(
+                    if matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
+                        -step
+                    } else {
+                        step
+                    },
+                );
                 app.signal = Some(target);
-            } else if key.code == KeyCode::Char('y') {
+            } else if let Some(signal) = signals::navigate(
+                target.signal,
+                key.code,
+                app.signal_ui.columns,
+                app.signal_ui.rows,
+            ) {
+                target.signal = signal;
+                app.signal = Some(target);
+            } else if let Some(signal) = super::signals::shortcut(key.code) {
+                if sysinfo::SUPPORTED_SIGNALS.contains(&signal) {
+                    target.signal = signal;
+                } else {
+                    app.status = format!("{signal:?} is unsupported on this platform");
+                }
+                app.signal = Some(target);
+            } else if matches!(key.code, KeyCode::Char('y' | 'Y') | KeyCode::Enter) {
                 let mut targets = std::mem::take(&mut app.signal_targets);
                 if targets.is_empty() {
                     targets.push(target.clone());
@@ -457,36 +614,52 @@ impl Input<'_> {
                         }
                     ));
                 });
-            } else if key.code == KeyCode::Esc {
+            } else if matches!(key.code, KeyCode::Esc | KeyCode::Char('n' | 'N')) {
                 app.signal_targets.clear();
-            } else if matches!(key.code, KeyCode::PageDown | KeyCode::PageUp) {
-                app.detail_scroll =
-                    app.detail_scroll
-                        .saturating_add_signed(if key.code == KeyCode::PageDown {
-                            15
-                        } else {
-                            -15
-                        });
+            } else {
                 app.signal = Some(target);
             }
             return true;
         }
         if app.settings {
+            if matches!(
+                key.code,
+                KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Tab
+                    | KeyCode::BackTab
+                    | KeyCode::Home
+                    | KeyCode::End
+                    | KeyCode::PageUp
+                    | KeyCode::PageDown
+            ) {
+                app.dialog.settings_message.clear();
+            }
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                key.code = KeyCode::Right;
+            }
             match key.code {
                 KeyCode::Esc | KeyCode::F(2) => app.settings = false,
-                KeyCode::Up => app.setting_index = app.setting_index.saturating_sub(1),
-                KeyCode::Down => {
+                KeyCode::Up | KeyCode::BackTab => {
+                    app.setting_index = app.setting_index.saturating_sub(1)
+                }
+                KeyCode::Down | KeyCode::Tab => {
                     app.setting_index =
                         (app.setting_index + 1).min(rstop::config::Config::SETTINGS_COUNT - 1)
                 }
                 KeyCode::Home => app.setting_index = 0,
                 KeyCode::End => app.setting_index = rstop::config::Config::SETTINGS_COUNT - 1,
-                KeyCode::PageUp => app.setting_index = app.setting_index.saturating_sub(8),
+                KeyCode::PageUp => {
+                    app.setting_index = app.setting_index.saturating_sub(app.dialog.rows.max(1));
+                    app.setting_offset = app.setting_offset.saturating_sub(app.dialog.rows.max(1));
+                }
                 KeyCode::PageDown => {
-                    app.setting_index =
-                        (app.setting_index + 8).min(rstop::config::Config::SETTINGS_COUNT - 1)
+                    app.setting_index = (app.setting_index + app.dialog.rows.max(1))
+                        .min(rstop::config::Config::SETTINGS_COUNT - 1);
+                    app.setting_offset = app.setting_offset.saturating_add(app.dialog.rows.max(1));
                 }
                 KeyCode::Left | KeyCode::Right => {
+                    app.dialog.settings_message = "Preview updated · Changes are not saved".into();
                     let increase = key.code == KeyCode::Right;
                     match app.setting_index {
                         0 => {
@@ -586,9 +759,9 @@ impl Input<'_> {
                     }
                 }
                 KeyCode::Char('w') => {
-                    app.status = match app.config.save(path) {
-                        Ok(()) => format!("Saved {}", path.display()),
-                        Err(error) => format!("Cannot save: {error}"),
+                    app.dialog.settings_message = match app.config.save(path) {
+                        Ok(()) => "Saved preferences".into(),
+                        Err(error) => format!("Could not save: {error}"),
                     }
                 }
                 _ => {}
@@ -611,7 +784,7 @@ impl Input<'_> {
         }
         if app.detail.is_some() || app.help {
             match key.code {
-                KeyCode::Char('/') | KeyCode::F(3) if app.detail.is_some() => {
+                KeyCode::Char('/') | KeyCode::F(3) => {
                     app.editor.reset();
                     app.detail_search = true;
                 }
@@ -620,26 +793,7 @@ impl Input<'_> {
                     app.detail_scroll = 0;
                 }
                 KeyCode::End => {
-                    app.detail_scroll = app.detail.as_ref().map_or(0, |(_, body)| {
-                        let filtered = body
-                            .lines()
-                            .filter(|line| {
-                                app.detail_filter.is_empty()
-                                    || line
-                                        .to_lowercase()
-                                        .contains(&app.detail_filter.to_lowercase())
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        let count = if app.log_target.is_some() {
-                            filtered.lines().count()
-                        } else {
-                            ratatui::widgets::Paragraph::new(filtered)
-                                .wrap(ratatui::widgets::Wrap { trim: false })
-                                .line_count(app.detail_width)
-                        };
-                        count.saturating_sub(app.detail_rows)
-                    });
+                    app.detail_scroll = app.dialog.lines.saturating_sub(app.detail_rows);
                     app.follow_logs = app.log_target.is_some();
                 }
                 KeyCode::Left if app.log_target.is_some() => {
@@ -678,11 +832,11 @@ impl Input<'_> {
                 }
                 KeyCode::PageDown => {
                     app.follow_logs = false;
-                    app.detail_scroll = app.detail_scroll.saturating_add(15);
+                    app.detail_scroll = app.detail_scroll.saturating_add(app.detail_rows.max(1));
                 }
                 KeyCode::PageUp => {
                     app.follow_logs = false;
-                    app.detail_scroll = app.detail_scroll.saturating_sub(15);
+                    app.detail_scroll = app.detail_scroll.saturating_sub(app.detail_rows.max(1));
                 }
                 _ => {}
             }

@@ -2,13 +2,18 @@ mod dialogs;
 mod labels;
 mod menu;
 mod mouse;
+#[cfg(test)]
+mod popup_tests;
 mod ros;
+mod signals;
 mod updates;
 use super::inspect::{
     additional, inspect, inspect_process_extra, load_logs, load_resource_detail, open_report, task,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use rstop::app::{App, MenuKind, SignalTarget, Sort, UiMenu, View};
+#[cfg(test)]
+use rstop::app::SignalTarget;
+use rstop::app::{App, MenuKind, Sort, UiMenu, View};
 use std::{
     path::PathBuf,
     sync::{
@@ -58,6 +63,10 @@ impl Input<'_> {
     }
 
     pub fn key(&mut self, app: &mut App, mut key: KeyEvent) -> bool {
+        if app.prompt.is_none() && app.update_notice.is_none() {
+            app.dialog.error.clear();
+            app.dialog.scroll = 0;
+        }
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return false;
         }
@@ -68,11 +77,48 @@ impl Input<'_> {
             self.update_key(app, key);
             return true;
         }
+        // Process reports keep the same action keys as the process table.
+        // Editors and child dialogs retain first claim on their own input.
+        if app.detail.is_some()
+            && !app.detail_search
+            && !app.help
+            && !app.settings
+            && !app.editing_filter
+            && app.ui_menu.is_none()
+            && app.action_menu.is_none()
+            && app.prompt.is_none()
+            && app.signal.is_none()
+            && app.main_menu.is_none()
+            && app.has_process_table()
+            && app.selected_process().is_some()
+            && !key
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            && matches!(
+                key.code,
+                KeyCode::F(9) | KeyCode::Char('k' | 'K' | 't' | 's')
+            )
+        {
+            self.open_signal(app, key.code);
+            return true;
+        }
         if self.modal(app, key) {
             return true;
         }
         if app.main_menu.is_some() {
             return self.main_menu_key(app, key);
+        }
+        if !app.gpu_info_open()
+            && !app.editing_filter
+            && key.modifiers == KeyModifiers::ALT
+            && matches!(key.code, KeyCode::Char('j' | 'k'))
+        {
+            app.move_selection(if key.code == KeyCode::Char('j') {
+                1
+            } else {
+                -1
+            });
+            return true;
         }
         if !app.gpu_info_open()
             && !app.editing_filter
@@ -97,7 +143,6 @@ impl Input<'_> {
         let replay_len = self.replay_len;
         let alias = match key.code {
             KeyCode::F(3) => Some(KeyCode::Char('/')),
-            KeyCode::F(4) => Some(KeyCode::Char('s')),
             KeyCode::F(7) => Some(KeyCode::Char('l')),
             _ => None,
         };
@@ -105,7 +150,7 @@ impl Input<'_> {
             app.editing_filter = false;
             key.code = code;
         }
-        if matches!(key.code, KeyCode::F(5) | KeyCode::F(6)) {
+        if matches!(key.code, KeyCode::F(4) | KeyCode::F(5) | KeyCode::F(6)) {
             app.editing_filter = false;
         }
         if app.editing_filter {
@@ -169,7 +214,22 @@ impl Input<'_> {
                 KeyCode::Enter
                     | KeyCode::F(9)
                     | KeyCode::Char(
-                        'd' | 'e' | 'o' | 'l' | 'n' | 'a' | 'x' | 'B' | 'L' | 'K' | 'v' | 'V'
+                        'd' | 'e'
+                            | 'o'
+                            | 'l'
+                            | 'n'
+                            | 'N'
+                            | 'a'
+                            | 'x'
+                            | 'B'
+                            | 'L'
+                            | 'k'
+                            | 'K'
+                            | 't'
+                            | 's'
+                            | 'v'
+                            | 'V'
+                            | ' '
                     )
             )
         {
@@ -268,7 +328,7 @@ impl Input<'_> {
             KeyCode::Char('D') if app.view == View::Network => {
                 app.focus_panel(app.network_section + 1)
             }
-            KeyCode::Char('s') if app.view == View::Network => {
+            KeyCode::F(4) | KeyCode::Char('s') if app.view == View::Network => {
                 let (items, index, kind) = if app.network_section == 0 {
                     (
                         rstop::network_sort::ConnectionSort::ALL
@@ -394,7 +454,7 @@ impl Input<'_> {
                 app.config.show_kernel_threads = !app.config.show_kernel_threads;
                 app.resort_processes();
             }
-            KeyCode::Char('v') if app.has_process_table() => app.toggle_tag(),
+            KeyCode::Char('v' | ' ') if app.has_process_table() => app.toggle_tag(),
             KeyCode::Char('V') if app.has_process_table() => app.tag_children(),
             KeyCode::Char('U') => app.tagged.clear(),
             KeyCode::Char('I') | KeyCode::Char('A') if app.view == View::Processes => {
@@ -414,11 +474,13 @@ impl Input<'_> {
                     ));
                 }
             }
-            KeyCode::Char('n') | KeyCode::Char('a') if app.has_process_table() => {
-                if let Some(p) = app.selected_process().cloned() {
+            KeyCode::Char('n' | 'N' | 'a') if app.has_process_table() => {
+                if app.replay || self.read_only {
+                    app.status = "Process actions disabled in replay/read-only mode".into();
+                } else if let Some(p) = app.selected_process().cloned() {
                     app.editor.reset();
                     app.prompt = Some((
-                        if key.code == KeyCode::Char('n') {
+                        if matches!(key.code, KeyCode::Char('n' | 'N')) {
                             "nice"
                         } else {
                             "affinity"
@@ -470,7 +532,8 @@ impl Input<'_> {
                 app.events = Default::default();
             }
             KeyCode::Down | KeyCode::Char('j') => app.move_selection(1),
-            KeyCode::Up | KeyCode::Char('k') => app.move_selection(-1),
+            KeyCode::Up => app.move_selection(-1),
+            KeyCode::Char('k') if !app.has_process_table() => app.move_selection(-1),
             KeyCode::PageDown => app.move_selection(app.table_rect.height.max(5) as isize),
             KeyCode::PageUp => app.move_selection(-(app.table_rect.height.max(5) as isize)),
             KeyCode::Home => {
@@ -501,7 +564,9 @@ impl Input<'_> {
                 app.table_offset = 0;
                 app.clear_active_selection();
             }
-            KeyCode::Char('s') if matches!(app.view, View::Services | View::Containers) => {
+            KeyCode::F(4) | KeyCode::Char('s')
+                if matches!(app.view, View::Services | View::Containers) =>
+            {
                 let mut items = vec![("Default (discovery order)".into(), KeyCode::Null)];
                 items.extend(
                     [Sort::Name, Sort::Cpu, Sort::Memory, Sort::State]
@@ -514,7 +579,7 @@ impl Input<'_> {
                         .with_reverse(),
                 );
             }
-            KeyCode::Char('s') if app.process_grouped() => {
+            KeyCode::F(4) if app.process_grouped() => {
                 app.ui_menu = Some(
                     UiMenu::new(
                         "Sort by",
@@ -535,7 +600,7 @@ impl Input<'_> {
                     .with_reverse(),
                 );
             }
-            KeyCode::Char('s') if app.has_process_table() => {
+            KeyCode::F(4) if app.has_process_table() => {
                 let mut sorts = Sort::ALL.to_vec();
                 for column in &app.visible_columns {
                     if let Some(sort) = Sort::for_column(column)
@@ -585,12 +650,9 @@ impl Input<'_> {
                     .with_kind(MenuKind::Columns),
                 );
             }
-            KeyCode::Char('S') | KeyCode::Char('T') | KeyCode::Char('I')
-                if app.view == View::Gpu =>
-            {
+            KeyCode::Char('S') | KeyCode::Char('I') if app.view == View::Gpu => {
                 app.focus_panel(match key.code {
                     KeyCode::Char('S') => 0,
-                    KeyCode::Char('T') => 1,
                     _ => 2,
                 });
                 self.last_click = None;
@@ -622,7 +684,7 @@ impl Input<'_> {
                 app.reverse = !app.reverse;
                 app.resort_processes();
             }
-            KeyCode::Char('t') => {
+            KeyCode::Char('T') => {
                 app.tree = !app.tree;
                 app.resort_processes();
             }
@@ -810,40 +872,13 @@ impl Input<'_> {
             KeyCode::Char('e') => inspect_process_extra(app, true, detail_tx.clone()),
             KeyCode::Char('o') => inspect_process_extra(app, false, detail_tx.clone()),
             KeyCode::Char('l') => load_logs(app, detail_tx.clone()),
-            KeyCode::F(9) | KeyCode::Char('K') => {
-                if !app.replay
-                    && !self.read_only
-                    && app.has_process_table()
-                    && let Some(process) = app.selected_process().cloned()
-                {
-                    app.signal_targets = app
-                        .snapshot
-                        .processes
-                        .iter()
-                        .filter(|p| app.tagged.contains(&(p.pid, p.start_time)))
-                        .map(|p| SignalTarget {
-                            pid: p.pid,
-                            start_time: p.start_time,
-                            name: p.name.clone(),
-                            signal: sysinfo::Signal::Term,
-                        })
-                        .collect();
-                    app.detail_scroll = 0;
-                    app.signal = Some(SignalTarget {
-                        pid: process.pid,
-                        start_time: process.start_time,
-                        name: process.name.clone(),
-                        signal: if key.code == KeyCode::Char('K') {
-                            sysinfo::Signal::Kill
-                        } else {
-                            if sysinfo::SUPPORTED_SIGNALS.contains(&sysinfo::Signal::Term) {
-                                sysinfo::Signal::Term
-                            } else {
-                                sysinfo::Signal::Kill
-                            }
-                        },
-                    });
-                }
+            KeyCode::F(9) | KeyCode::Char('k' | 'K' | 't' | 's')
+                if app.has_process_table()
+                    && !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+            {
+                self.open_signal(app, key.code);
             }
             _ => {}
         }
@@ -861,7 +896,7 @@ mod tests {
     pub(super) fn run(test: impl FnOnce(&mut Input<'_>, &mut App)) {
         run_at(&PathBuf::from("/unused-rstop-test-config"), test);
     }
-    fn run_at(path: &PathBuf, test: impl FnOnce(&mut Input<'_>, &mut App)) {
+    pub(super) fn run_at(path: &PathBuf, test: impl FnOnce(&mut Input<'_>, &mut App)) {
         let interval = AtomicU64::new(1000);
         let replay = AtomicUsize::new(0);
         let (detail_tx, _) = mpsc::channel();
@@ -1139,7 +1174,7 @@ mod tests {
                             crossterm::event::MouseButton::Left,
                         ),
                         column: rect.x + rect.width / 2,
-                        row: rect.y + 1,
+                        row: rect.y + rect.height / 2,
                         modifiers: KeyModifiers::NONE,
                     },
                 );

@@ -6,15 +6,46 @@ pub(super) fn menu(
     title: &str,
     items: &[(String, crossterm::event::KeyCode)],
     selected: usize,
+    offset: usize,
+    kind: crate::app::MenuKind,
     p: Palette,
-) -> (Rect, usize, Rect) {
-    let area = popup(frame.area(), 78, (items.len() + 4).min(28) as u16);
-    frame.render_widget(Clear, area);
-    let title = super::tags::elide(title, area.width.saturating_sub(4));
-    let b = block(format!(" {title} "), p, p.mint)
-        .title_bottom(" [↑↓] Select · [Enter] Apply · [Esc] Back ");
-    let inner = b.inner(area);
-    let mut state = ListState::default().with_selected(Some(selected));
+) -> (Rect, usize, Rect, Rect) {
+    let width = items
+        .iter()
+        .map(|(label, key)| {
+            Line::raw(label).width() + crate::app::commands::key_name(*key).len() + 11
+        })
+        .max()
+        .unwrap_or(44)
+        .clamp(48, 78) as u16;
+    let area = popup(frame.area(), width, (items.len() + 6).clamp(8, 28) as u16);
+    let inner = surface(frame, area, title, p, p.mint);
+    let mut list_area = Rect::new(
+        inner.x,
+        inner.y,
+        inner.width,
+        inner.height.saturating_sub(2),
+    );
+    let selected = selected.min(items.len().saturating_sub(1));
+    let rows = list_area.height.max(1) as usize;
+    let mut offset = offset.min(items.len().saturating_sub(rows));
+    if selected < offset {
+        offset = selected;
+    }
+    if selected >= offset + rows {
+        offset = selected + 1 - rows;
+    }
+    let scrolling = items.len() > rows;
+    if scrolling {
+        list_area.width = list_area.width.saturating_sub(1);
+    }
+    let mut state = ListState::default()
+        .with_selected(if items.is_empty() {
+            None
+        } else {
+            Some(selected)
+        })
+        .with_offset(offset);
     frame.render_stateful_widget(
         List::new(items.iter().enumerate().map(|(index, (label, key))| {
             let hint = if *key == crossterm::event::KeyCode::Null {
@@ -26,18 +57,79 @@ pub(super) fn menu(
             } else {
                 format!("[{}]", crate::app::commands::key_name(*key))
             };
+            let label_width = list_area.width.saturating_sub(hint.len() as u16 + 4);
+            let label = super::tags::elide(label, label_width);
+            let gap = list_area
+                .width
+                .saturating_sub(Line::raw(&label).width() as u16 + hint.len() as u16 + 2);
             ListItem::new(Line::from(vec![
-                Span::styled(format!(" {hint:<9}"), Style::new().fg(p.mint).bold()),
-                Span::styled(label.clone(), Style::new().fg(p.text)),
+                Span::styled(label, Style::new().fg(p.text)),
+                Span::raw(" ".repeat(gap as usize)),
+                Span::styled(
+                    hint,
+                    Style::new().fg(if index == selected { p.mint } else { p.muted }),
+                ),
             ]))
         }))
-        .block(b)
-        .highlight_style(Style::new().bg(p.selection).fg(p.mint).bold())
-        .highlight_symbol("▸"),
-        area,
+        .highlight_style(Style::new().bg(p.selection).fg(p.text))
+        .highlight_symbol("▸ "),
+        list_area,
         &mut state,
     );
-    (inner, state.offset(), area)
+    let back = Rect::new(inner.right().saturating_sub(11), inner.bottom() - 1, 11, 1);
+    let instructions = if kind == crate::app::MenuKind::Columns {
+        "[Space/Enter] Toggle"
+    } else {
+        "[↑↓/Tab] Move [Enter] Open"
+    };
+    frame.render_widget(
+        Paragraph::new(super::tags::elide(
+            instructions,
+            inner.width.saturating_sub(12),
+        ))
+        .style(Style::new().fg(p.muted)),
+        Rect::new(inner.x, back.y, inner.width.saturating_sub(12), 1),
+    );
+    super::controls::nav_button(
+        frame,
+        back,
+        crossterm::event::KeyCode::Esc,
+        if kind == crate::app::MenuKind::Columns {
+            "Done"
+        } else {
+            "Back"
+        },
+        false,
+        p,
+        p.panel,
+    );
+    if items.is_empty() {
+        frame.render_widget(
+            Paragraph::new("No items to display").style(Style::new().fg(p.muted)),
+            list_area,
+        );
+    }
+    if scrolling {
+        let mut scroll = ScrollbarState::new(items.len())
+            .position(offset)
+            .viewport_content_length(rows);
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .thumb_style(Style::new().fg(p.mint))
+                .track_style(Style::new().fg(p.border)),
+            Rect::new(list_area.right(), list_area.y, 1, list_area.height),
+            &mut scroll,
+        );
+        frame.render_widget(
+            Paragraph::new(format!(" {}/{} ", selected + 1, items.len()))
+                .style(Style::new().fg(p.muted))
+                .alignment(Alignment::Right),
+            Rect::new(area.x + 2, area.bottom() - 1, area.width - 4, 1),
+        );
+    }
+    (list_area, state.offset(), area, back)
 }
 
 pub(super) fn surface(
@@ -74,10 +166,10 @@ pub(super) fn popup(area: Rect, width: u16, height: u16) -> Rect {
 }
 
 pub(super) fn settings(frame: &mut Frame, app: &mut App, p: Palette) {
-    let area = popup(frame.area(), 74, 23);
+    let area = popup(frame.area(), 78, 26);
     app.settings_rect = area;
     app.popup_rect = area;
-    frame.render_widget(Clear, area);
+    let inner = surface(frame, area, "Settings", p, p.mint);
     let theme_index = crate::config::THEMES
         .iter()
         .position(|name| *name == app.config.theme)
@@ -125,122 +217,169 @@ pub(super) fn settings(frame: &mut Frame, app: &mut App, p: Palette) {
         ("Log tail lines", app.config.log_lines.to_string()),
     ]);
     options.extend(app.config.display.settings());
-    let mut lines = vec![
-        Line::styled(
-            " [↑↓] Choose · [←→] Adjust · [w] Save · [Esc] Back",
-            Style::new().fg(p.muted),
-        ),
-        Line::raw(""),
-    ];
-    let visible = area.height.saturating_sub(6).max(1) as usize;
-    app.setting_offset = app.setting_index.saturating_sub(visible.saturating_sub(1));
-    for (i, (label, value)) in options
-        .iter()
-        .enumerate()
-        .skip(app.setting_offset)
-        .take(visible)
-    {
-        let (display, color) = match value.as_str() {
-            "true" => ("(●) ON".to_string(), p.mint),
-            "false" => ("(○) OFF".to_string(), p.muted),
-            _ => (value.clone(), p.blue),
-        };
-        let mut line = Line::from(vec![
-            Span::styled(
-                format!(" {} ", if i == app.setting_index { "▸" } else { " " }),
-                Style::new().fg(p.mint),
-            ),
-            Span::styled(format!("{label:<28} "), Style::new().fg(p.text)),
-            Span::styled(display, Style::new().fg(color).bold()),
-        ]);
-        if i == app.setting_index {
-            line = line.style(Style::new().bg(p.selection));
-        }
-        lines.push(line);
+    app.popup_actions.clear();
+    app.dialog.settings_rows.clear();
+    app.dialog.settings_adjust.clear();
+    let visible = area.height.saturating_sub(7).max(1) as usize;
+    app.dialog.rows = visible;
+    app.dialog.lines = options.len();
+    let mut offset = app
+        .setting_offset
+        .min(options.len().saturating_sub(visible));
+    if app.setting_index < offset {
+        offset = app.setting_index;
     }
-    lines.push(Line::raw(""));
-    lines.push(Line::styled(
-        format!(" {}", app.status),
-        Style::new().fg(p.muted),
-    ));
+    if app.setting_index >= offset + visible {
+        offset = app.setting_index + 1 - visible;
+    }
+    app.setting_offset = offset;
     frame.render_widget(
-        Paragraph::new(lines).block(block(" PREFERENCES ", p, p.mint)),
-        area,
+        Paragraph::new(format!(
+            "[↑↓/Tab] Choose · [←→/Enter] Adjust   {}/{}",
+            app.setting_index + 1,
+            options.len()
+        ))
+        .style(Style::new().fg(p.muted)),
+        Rect::new(inner.x, area.y + 1, inner.width, 1),
     );
+    let value_width = 17.min(inner.width / 2);
+    for (index, (label, value)) in options.iter().enumerate().skip(offset).take(visible) {
+        let row = Rect::new(
+            inner.x,
+            area.y + 3 + (index - offset) as u16,
+            inner.width.saturating_sub(1),
+            1,
+        );
+        let active = app.setting_index == index;
+        if active {
+            frame.render_widget(Block::new().style(Style::new().bg(p.selection)), row);
+        }
+        let right = Rect::new(row.right() - 3, row.y, 3, 1);
+        let left = Rect::new(right.x - value_width - 4, row.y, 3, 1);
+        let label_rect = Rect::new(row.x + 2, row.y, left.x.saturating_sub(row.x + 3), 1);
+        frame.render_widget(
+            Paragraph::new(if active { "▸" } else { " " }).style(Style::new().fg(p.mint)),
+            Rect::new(row.x, row.y, 1, 1),
+        );
+        frame.render_widget(
+            Paragraph::new(super::tags::elide(label, label_rect.width))
+                .style(Style::new().fg(p.text)),
+            label_rect,
+        );
+        let (display, color) = match value.as_str() {
+            "true" => ("On", p.mint),
+            "false" => ("Off", p.muted),
+            _ => (value.as_str(), p.blue),
+        };
+        frame.render_widget(
+            Paragraph::new("[←]").style(Style::new().fg(if active { p.mint } else { p.border })),
+            left,
+        );
+        frame.render_widget(
+            Paragraph::new(super::tags::elide(display, value_width))
+                .alignment(Alignment::Center)
+                .style(Style::new().fg(color)),
+            Rect::new(left.right() + 1, row.y, value_width, 1),
+        );
+        frame.render_widget(
+            Paragraph::new("[→]").style(Style::new().fg(if active { p.mint } else { p.border })),
+            right,
+        );
+        app.dialog.settings_rows.push((row, index));
+        app.dialog.settings_adjust.extend([
+            (left, index, crossterm::event::KeyCode::Left),
+            (right, index, crossterm::event::KeyCode::Right),
+        ]);
+    }
+    if options.len() > visible {
+        let mut state = ScrollbarState::new(options.len())
+            .position(offset)
+            .viewport_content_length(visible);
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .thumb_style(Style::new().fg(p.mint))
+                .track_style(Style::new().fg(p.border)),
+            Rect::new(inner.right() - 1, area.y + 3, 1, visible as u16),
+            &mut state,
+        );
+    }
+    let message = if app.dialog.settings_message.is_empty() {
+        options
+            .get(app.setting_index)
+            .map(|(label, _)| *label)
+            .unwrap_or("")
+    } else {
+        &app.dialog.settings_message
+    };
+    frame.render_widget(
+        Paragraph::new(super::tags::elide(message, inner.width)).style(Style::new().fg(
+            if message.starts_with("Could not") {
+                p.red
+            } else {
+                p.muted
+            },
+        )),
+        Rect::new(inner.x, inner.bottom() - 2, inner.width, 1),
+    );
+    let y = inner.bottom() - 1;
+    for (rect, key, label) in [
+        (
+            Rect::new(inner.x, y, 26, 1),
+            crossterm::event::KeyCode::Char('w'),
+            "Save preferences",
+        ),
+        (
+            Rect::new(inner.right() - 14, y, 14, 1),
+            crossterm::event::KeyCode::Esc,
+            "Back",
+        ),
+    ] {
+        super::controls::nav_button(frame, rect, key, label, false, p, p.panel);
+        app.popup_actions.push((rect, key));
+    }
 }
 
 pub(super) fn detail(
     frame: &mut Frame,
+    app: &mut App,
     title: &str,
     body: &str,
-    scroll: usize,
     p: Palette,
 ) -> Rect {
-    detail_window(frame, title, body, scroll, None, p)
-}
-
-pub(super) fn notice(
-    frame: &mut Frame,
-    title: &str,
-    body: &str,
-    scroll: usize,
-    hint: &'static str,
-    p: Palette,
-) -> Rect {
-    render_detail(frame, title, body, (scroll, None), hint, p)
+    render_detail(frame, app, title, body, false, p)
 }
 
 pub(super) fn log_detail(
     frame: &mut Frame,
+    app: &mut App,
     title: &str,
     body: &str,
-    scroll: usize,
-    column: u16,
     p: Palette,
 ) -> Rect {
-    detail_window(frame, title, body, scroll, Some(column), p)
-}
-
-fn detail_window(
-    frame: &mut Frame,
-    title: &str,
-    body: &str,
-    scroll: usize,
-    column: Option<u16>,
-    p: Palette,
-) -> Rect {
-    render_detail(
-        frame,
-        title,
-        body,
-        (scroll, column),
-        " [Esc] Back · [↑↓] Scroll · [/] Search ",
-        p,
-    )
+    render_detail(frame, app, title, body, true, p)
 }
 
 fn render_detail(
     frame: &mut Frame,
+    app: &mut App,
     title: &str,
     body: &str,
-    (scroll, column): (usize, Option<u16>),
-    hint: &'static str,
+    log: bool,
     p: Palette,
 ) -> Rect {
-    let area = popup(frame.area(), 110, 32);
-    frame.render_widget(Clear, area);
+    use crossterm::event::KeyCode;
+    app.popup_actions.clear();
     let clean = body
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\n")
         .chars()
-        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
         .collect::<String>();
     let mut after_gap = true;
-    let lines: Vec<Line<'_>> = clean
+    let mut lines: Vec<Line<'_>> = clean
         .lines()
         .map(|line| {
-            let section = column.is_none()
+            let section = !log
                 && after_gap
                 && !line.is_empty()
                 && line.len() < 65
@@ -248,38 +387,164 @@ fn render_detail(
                 && !line.contains("  ")
                 && !line.contains([':', '{', '}', '=']);
             after_gap = line.trim().is_empty();
-            if column.is_some() {
-                return Line::raw(line);
-            }
             if section {
-                return Line::styled(line, Style::new().fg(p.blue).bold());
+                Line::styled(line, Style::new().fg(p.blue).bold())
+            } else {
+                Line::raw(line)
             }
-            if let Some(index) = line.find("  ") {
-                let (label, value) = line.split_at(index);
-                if !label.trim().is_empty() && label.len() <= 32 {
-                    return Line::from(vec![
-                        Span::styled(label, Style::new().fg(p.muted)),
-                        Span::styled(value, Style::new().fg(p.text)),
-                    ]);
-                }
-            }
-            Line::raw(line)
         })
         .collect();
-    let widget =
-        Paragraph::new(lines).block(block(format!(" {title} "), p, p.blue).title_bottom(hint));
-    let widget = if let Some(column) = column {
-        widget.scroll((scroll.min(u16::MAX as usize) as u16, column))
+    let empty = lines.is_empty();
+    if empty {
+        lines.push(Line::styled(
+            if app.detail_filter.is_empty() {
+                "No content to display"
+            } else {
+                "No matching lines"
+            },
+            Style::new().fg(p.muted),
+        ));
+    }
+    let width = (lines.iter().map(Line::width).max().unwrap_or(0) + 7).clamp(52, 110) as u16;
+    let content_width = width
+        .min(frame.area().width.saturating_sub(4))
+        .saturating_sub(7)
+        .max(1);
+    let measured = Paragraph::new(lines.clone()).wrap(Wrap { trim: false });
+    let rows = if log {
+        lines.len()
+    } else {
+        measured.line_count(content_width)
+    };
+    let area = popup(frame.area(), width, (rows + 6).clamp(9, 32) as u16);
+    let inner = surface(frame, area, title, p, p.blue);
+    let content = Rect::new(
+        inner.x,
+        inner.y,
+        inner.width.saturating_sub(1),
+        inner.height.saturating_sub(2),
+    );
+    app.detail_rows = content.height as usize;
+    app.detail_width = content.width;
+    app.dialog.lines = rows;
+    app.dialog.rows = content.height as usize;
+    app.dialog.content = content;
+    let maximum = rows.saturating_sub(content.height as usize);
+    if log && app.follow_logs {
+        app.detail_scroll = maximum;
+    } else {
+        app.detail_scroll = app.detail_scroll.min(maximum);
+    }
+    let longest = lines.iter().map(Line::width).max().unwrap_or(0);
+    app.detail_column = app.detail_column.min(
+        longest
+            .saturating_sub(content.width as usize)
+            .min(u16::MAX as usize) as u16,
+    );
+    let widget = Paragraph::new(lines);
+    let widget = if log {
+        widget.scroll((
+            app.detail_scroll.min(u16::MAX as usize) as u16,
+            app.detail_column,
+        ))
     } else {
         widget
             .wrap(Wrap { trim: false })
-            .scroll((scroll.min(u16::MAX as usize) as u16, 0))
+            .scroll((app.detail_scroll.min(u16::MAX as usize) as u16, 0))
     };
-    frame.render_widget(widget, area);
+    frame.render_widget(widget, content);
+    if rows > content.height as usize {
+        let mut state = ScrollbarState::new(rows)
+            .position(app.detail_scroll)
+            .viewport_content_length(content.height as usize);
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .thumb_style(Style::new().fg(p.mint))
+                .track_style(Style::new().fg(p.border)),
+            Rect::new(content.right(), content.y, 1, content.height),
+            &mut state,
+        );
+    }
+    let status = Rect::new(inner.x, inner.bottom() - 2, inner.width, 1);
+    if app.detail_search || !app.detail_filter.is_empty() {
+        let prefix = "Find: ";
+        let available = status.width.saturating_sub(prefix.len() as u16 + 1);
+        let cursor =
+            Line::raw(&app.detail_filter[..app.editor.position(&app.detail_filter)]).width() as u16;
+        let scroll = cursor.saturating_sub(available.saturating_sub(1));
+        frame.render_widget(
+            Paragraph::new(prefix).style(Style::new().fg(p.blue)),
+            Rect::new(status.x, status.y, prefix.len() as u16, 1),
+        );
+        let field = Rect::new(status.x + prefix.len() as u16, status.y, available, 1);
+        frame.render_widget(
+            Paragraph::new(app.detail_filter.as_str())
+                .scroll((0, scroll))
+                .style(Style::new().fg(p.text).bg(p.selection)),
+            field,
+        );
+        app.dialog.input = field;
+        if app.detail_search {
+            frame.set_cursor_position((
+                field.x
+                    + cursor
+                        .saturating_sub(scroll)
+                        .min(available.saturating_sub(1)),
+                field.y,
+            ));
+        }
+    } else {
+        let status_text = if empty {
+            "0 lines".into()
+        } else {
+            format!(
+                "{}–{} / {} lines{}",
+                app.detail_scroll + 1,
+                (app.detail_scroll + content.height as usize).min(rows),
+                rows,
+                if log {
+                    if app.follow_logs {
+                        " · Following"
+                    } else {
+                        " · Paused"
+                    }
+                } else {
+                    ""
+                }
+            )
+        };
+        frame.render_widget(
+            Paragraph::new(status_text).style(Style::new().fg(p.muted)),
+            status,
+        );
+    }
+    let mut x = inner.x;
+    let mut buttons = vec![(KeyCode::Esc, "Back"), (KeyCode::Char('/'), "Find")];
+    if log {
+        buttons.extend([
+            (
+                KeyCode::Char('f'),
+                if app.follow_logs { "Pause" } else { "Follow" },
+            ),
+            (KeyCode::Char('p'), "File"),
+        ]);
+    }
+    for (key, label) in buttons {
+        let width = (crate::app::commands::key_name(key).len() + label.len() + 5) as u16;
+        let rect = Rect::new(x, inner.bottom() - 1, width, 1);
+        if rect.right() > inner.right() {
+            break;
+        }
+        super::controls::nav_button(frame, rect, key, label, false, p, p.panel);
+        app.popup_actions.push((rect, key));
+        x += width;
+    }
     area
 }
 
-pub(super) fn help(frame: &mut Frame, app: &App, p: Palette) -> Rect {
+pub(super) fn help(frame: &mut Frame, app: &mut App, p: Palette) -> Rect {
     let body = format!(
         "rstop {} · one terminal, your whole system
 
@@ -312,6 +577,14 @@ SELECT AND SEARCH
   Scroll details with the wheel or [Alt+↑↓/PgUp/PgDn/Home/End].
   Click detail labels or use [F6] for related actions.
 
+POPUPS
+  [↑↓/Tab/Shift+Tab] Select; [Home/End] First/last; [PgUp/PgDn] Page.
+  Settings: [←→/Enter] adjust or click a row's arrows; [w] saves.
+  Input errors keep your value and show the reason in the form.
+  Confirmations: [y/Enter] Confirm; [n/Esc] Cancel.
+  Long previews scroll before confirmation. Reports/help: [/] Find.
+  [Esc] or Back returns to the parent; clicks do not pass through.
+
 NETWORK
   Interfaces and Connections share one page. Click or scroll a table
   to focus it, or choose focus in [F5]. Each has its own filter and scroll.
@@ -342,14 +615,19 @@ These remain available; menus show the key beside each action.
   [R/O/J] Diagnose / additional details / Linux kernel and OOM
   [F7] or [l] Output/logs; [e/o] Environment / open files
   [C] Process columns; [Shift+←/→] Column window
-  [t] Process tree; [Ctrl+←/→] Collapse / expand or scroll commands
+  [T] Process tree; [Ctrl+←/→] Collapse / expand or scroll commands
   [P/M] CPU / RAM sort
   [g/u/H/h] GPU processes / own processes / threads / kernel threads
-  [v/V/U] Mark / mark descendants / clear marks; [Y] Label actions
-  [n/a/L/x/B] Nice / affinity / locks / trace / backtrace
-  [F9/K] Signal menu / SIGKILL; [y] confirms fixed targets
+  [Space/v] Mark; [V/U] Mark descendants / clear marks; [Y] Label actions
+  [n/N] Nice; [a/L/x/B] Affinity / locks / trace / backtrace
+  [k/K] Kill (SIGKILL); [t] Terminate (SIGTERM); [s/F9] Signal menu
+  Signal dialog: [i/t/k/s/c] INT / TERM / KILL / STOP / CONT
+  All supported signals are listed. [↑↓←→] Select; [Home/End] First/last
+  [PgUp/PgDn] Page signals; [Alt+↑↓] Scroll targets; [Tab/Shift+Tab] Next/previous signal
+  [Enter/y] Confirms fixed targets; [Esc/n] Cancels
+  [Alt+j/k] Select next / previous process; [↑↓] also select
   [W/z/Z] Chart window / zoom in / out; [+/-] Sampling speed
-  [S/T] GPU processes; [I] Device table; [m] Advanced process / workload tools
+  [S] GPU processes; [I] Device table; [m] Advanced process / workload tools
   [,/.] Replay backward / forward ten samples
   [?/Esc] Main menu; [:] All commands; [c/i/w] Theme / loopback / save
   [q] or [Ctrl+C] Quit (q is text while editing); [F10] also quits if received
@@ -364,13 +642,18 @@ Config: {}",
         env!("CARGO_PKG_VERSION"),
         crate::config::Config::path().display()
     );
-    detail(
-        frame,
-        &format!(" KEYBOARD  ·  {} ", app.config.theme),
-        &body,
-        app.detail_scroll,
-        p,
-    )
+    let body = if app.detail_filter.is_empty() {
+        body
+    } else {
+        body.lines()
+            .filter(|line| {
+                line.to_lowercase()
+                    .contains(&app.detail_filter.to_lowercase())
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    detail(frame, app, "Keyboard shortcuts", &body, p)
 }
 
 pub(super) fn parse_color(value: &str) -> Option<Color> {
