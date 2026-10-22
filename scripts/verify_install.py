@@ -33,8 +33,20 @@ def run(command, env=None):
 
 def download(url, path):
     protocols = "=http,https" if url.startswith("http://127.0.0.1:") else "=https"
+    headers = []
+    if url.startswith("https://api.github.com/") and os.environ.get("VERIFY_GITHUB_TOKEN"):
+        headers = ["-H", "Authorization: Bearer " + os.environ["VERIFY_GITHUB_TOKEN"]]
     run(["curl.exe" if os.name == "nt" else "curl", "--proto", protocols, "--tlsv1.2",
-         "-fLsS", "--retry", "2", "--connect-timeout", "15", "--max-time", "90", url, "-o", path])
+         "-fLsS", "--retry", "2", "--connect-timeout", "15", "--max-time", "90", *headers, url, "-o", path])
+
+
+def update_environment(env):
+    # Public archive/installer downloads remain unauthenticated. Only API-based
+    # updater calls use the CI token to avoid shared-runner anonymous rate limits.
+    env = dict(env)
+    if os.environ.get("VERIFY_GITHUB_TOKEN"):
+        env["RSTOP_GITHUB_TOKEN"] = os.environ["VERIFY_GITHUB_TOKEN"]
+    return env
 
 
 def sha(path):
@@ -117,6 +129,8 @@ def verify(args, base, root):
     report["checks"]["archive_checksum_and_contents"] = True
     binary, env, command, receipt_path = install(root / "fresh", args.version, base)
     if not args.artifacts:
+        env = update_environment(env)
+        report["update_api_auth"] = "workflow_token" if os.environ.get("VERIFY_GITHUB_TOKEN") else "anonymous"
         latest = root / ("latest.ps1" if os.name == "nt" else "latest.sh")
         download(f"{RELEASES}/latest/download/rstop-installer.{latest.suffix[1:]}", latest)
         assert sha(latest) == sha(command[-1]), "Latest and versioned installers differ"
@@ -141,6 +155,7 @@ def verify(args, base, root):
         if args.upgrade_from:
             old_base = f"{RELEASES}/download/v{args.upgrade_from}"
             old, old_env, _, old_receipt = install(root / "upgrade", args.upgrade_from, old_base, custom=True)
+            old_env = update_environment(old_env)
             for attempt in range(5):
                 if "update is available" in run([old, "update", "--check"], old_env).lower():
                     break

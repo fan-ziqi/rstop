@@ -49,6 +49,7 @@ jobs:
       VERIFY_UPGRADE_FROM: ${{ inputs.upgrade_from }}
       VERIFY_TARGET: ${{ matrix.target }}
       PYTHONUTF8: '1'
+      VERIFY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:

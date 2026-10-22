@@ -76,6 +76,8 @@ def windows(command, env, output):
     # https://learn.microsoft.com/windows/console/creating-a-pseudoconsole-session
     import ctypes as c
     from ctypes import wintypes as w
+    from pathlib import Path
+    import tempfile
     import threading
 
     class Coord(c.Structure):
@@ -136,6 +138,8 @@ def windows(command, env, output):
     startup.attributes = c.cast(attributes, c.c_void_p)
     process = Process()
     reader = None
+    diagnostics = tempfile.TemporaryDirectory(prefix="rstop-conpty-")
+    stderr = Path(diagnostics.name) / "stderr.txt"
 
     def send(data):
         count = w.DWORD()
@@ -151,7 +155,12 @@ def windows(command, env, output):
     def start():
         nonlocal reader
         block = c.create_unicode_buffer("\0".join(f"{key}={value}" for key, value in sorted(env.items())) + "\0\0")
-        line = c.create_unicode_buffer(subprocess.list2cmdline(command))
+        # Start the program through the user's normal console shell. Keep stderr
+        # outside the screen buffer so a terminal reset cannot erase a startup error.
+        shell = subprocess.list2cmdline([os.environ.get("COMSPEC", "cmd.exe")])
+        invocation = subprocess.list2cmdline(command)
+        redirect = subprocess.list2cmdline([str(stderr)])
+        line = c.create_unicode_buffer(f'{shell} /d /s /c "{invocation} 2>{redirect}"')
         require(create(None, line, None, None, False, 0x80000 | 0x400, block, None, c.byref(startup), c.byref(process)))
         close_handle(input_read)
         close_handle(output_write)
@@ -176,5 +185,8 @@ def windows(command, env, output):
         for handle in (input_write, output_read, process.thread, process.process):
             if handle:
                 close_handle(handle)
+        if stderr.exists():
+            output.extend(stderr.read_bytes())
+        diagnostics.cleanup()
 
     return start, send, finished, close
