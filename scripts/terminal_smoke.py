@@ -12,8 +12,11 @@ def check(command, env):
         start()
         deadline = time.monotonic() + 20
         quit_sent = False
+        visible_since = None
         while time.monotonic() < deadline:
-            if not quit_sent and b"Overview" in output:
+            if visible_since is None and b"Overview" in output:
+                visible_since = time.monotonic()
+            if not quit_sent and visible_since is not None and time.monotonic() - visible_since >= 1:
                 send(b"q")
                 quit_sent = True
             code = finished()
@@ -135,6 +138,9 @@ def windows(command, env, output):
     require(update(attributes, 0, 0x20016, console, c.sizeof(console), None, None))
     startup = StartupEx()
     startup.startup.cb = c.sizeof(startup)
+    # Null standard handles prevent CI's redirected pipes from being copied
+    # into the child instead of the pseudoconsole (microsoft/terminal#15814).
+    startup.startup.flags = 0x100  # STARTF_USESTDHANDLES
     startup.attributes = c.cast(attributes, c.c_void_p)
     process = Process()
     reader = None
