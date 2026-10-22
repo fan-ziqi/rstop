@@ -222,7 +222,7 @@ impl App {
                 ("Show or hide kernel threads".into(), KeyCode::Char('h')),
             ]);
         }
-        if self.view == View::Gpu {
+        if self.view == View::Gpu || self.view == View::Overview && self.snapshot.gpus.len() > 1 {
             items.extend([
                 ("Previous GPU".into(), KeyCode::Char('[')),
                 ("Next GPU".into(), KeyCode::Char(']')),

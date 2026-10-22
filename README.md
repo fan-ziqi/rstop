@@ -100,6 +100,7 @@ Buttons show their keyboard shortcuts; every function is accessible from the key
 | `F3`, `f`, `/` | Edit the focused table's inline filter |
 | `F4`, `s` | Sort chooser, including reverse order; `P`/`M` sort by CPU/RAM |
 | `F5` | View, panel focus, chart window, zoom and display options |
+| `[`, `]` | Previous GPU (`[`) or next GPU (`]`); click Prev/Next on the Overview GPU card or use `F5` |
 | `Enter`, `d`, `F6` | Open detail pane; full details; contextual tools |
 | `F7`, `m`, `l` | Process output/workload logs; object tools; logs |
 | `,`, `.` | Seek backward/forward during replay |

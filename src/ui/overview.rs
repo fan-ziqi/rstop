@@ -762,7 +762,7 @@ pub(super) fn memory(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     }
 }
 
-pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
+pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     let Some(gpu) = app.snapshot.gpus.get(app.selected_gpu) else {
         let title = if app.snapshot.timestamp == 0 && !app.replay {
             " GPU · collecting telemetry "
@@ -784,33 +784,61 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     } else {
         "—".into()
     };
-    let full_footer = if app.snapshot.gpus.len() > 1 {
-        format!(
-            " {} proc · {} · [ / ] {}/{} ",
-            count,
-            gpu.backend,
-            app.selected_gpu + 1,
-            app.snapshot.gpus.len()
-        )
+    let gpu_count = app.snapshot.gpus.len();
+    let position = format!("{}/{}", app.selected_gpu + 1, gpu_count);
+    let previous = " [ Prev ";
+    let next = " Next ] ";
+    let navigation_width = (previous.len() + position.len() + next.len()) as u16;
+    let footer_width = area.width.saturating_sub(2);
+    let navigation = gpu_count > 1 && navigation_width <= footer_width && area.height >= 2;
+    let metadata_width =
+        footer_width.saturating_sub(if navigation { navigation_width } else { 0 }) as usize;
+    let full_footer = if gpu_count > 1 {
+        format!(" {count} proc · {} ·", gpu.backend)
     } else {
         format!(" {count} processes · {} ", gpu.backend)
     };
-    let backend_in_footer =
-        Line::raw(&full_footer).width() <= area.width.saturating_sub(2) as usize;
-    let footer = if backend_in_footer {
+    let backend_in_footer = Line::raw(&full_footer).width() <= metadata_width;
+    let metadata = if backend_in_footer {
         full_footer
-    } else if app.snapshot.gpus.len() > 1 {
-        format!(
-            " {} proc · [ / ] {}/{} ",
-            count,
-            app.selected_gpu + 1,
-            app.snapshot.gpus.len()
-        )
+    } else if gpu_count > 1 {
+        format!(" {count} proc ·")
     } else {
         format!(" {count} processes ")
     };
-    let b = block(format!(" GPU {} · {} ", gpu.id, gpu.vendor), p, p.blue)
-        .title_bottom(Line::styled(footer, Style::new().fg(p.muted)));
+    let metadata_in_footer = !navigation || Line::raw(&metadata).width() <= metadata_width;
+    let metadata = if metadata_in_footer {
+        metadata
+    } else {
+        String::new()
+    };
+    let mut footer = Line::styled(metadata, Style::new().fg(p.muted));
+    if navigation {
+        let x = area.x + 1 + footer.width() as u16;
+        let y = area.bottom() - 1;
+        let button_style = Style::new().fg(p.blue).bold();
+        footer.spans.extend([
+            Span::styled(previous, button_style),
+            Span::raw(position.clone()),
+            Span::styled(next, button_style),
+        ]);
+        app.controls.extend([
+            (
+                Rect::new(x, y, previous.len() as u16, 1),
+                crossterm::event::KeyCode::Char('['),
+            ),
+            (
+                Rect::new(
+                    x + previous.len() as u16 + position.len() as u16,
+                    y,
+                    next.len() as u16,
+                    1,
+                ),
+                crossterm::event::KeyCode::Char(']'),
+            ),
+        ]);
+    }
+    let b = block(format!(" GPU {} · {} ", gpu.id, gpu.vendor), p, p.blue).title_bottom(footer);
     let inner = b.inner(area);
     frame.render_widget(b, area);
     let width = inner.width.saturating_sub(13) as usize;
@@ -855,7 +883,11 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     ];
     if !backend_in_footer {
         lines.push(Line::styled(
-            format!(" {}", gpu.backend),
+            if !metadata_in_footer {
+                format!(" {count} processes · {}", gpu.backend)
+            } else {
+                format!(" {}", gpu.backend)
+            },
             Style::new().fg(p.muted),
         ));
     }

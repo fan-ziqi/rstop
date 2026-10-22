@@ -306,6 +306,8 @@ OTHER RESOURCE TOOLS
   Services / containers: logs, details and management with confirmation.
   GPU: cards, charts, processes and device info share one page.
   Click a table or [F5] to focus it; [F5] also selects another GPU.
+  Overview GPU card: click Prev or Next, or choose a GPU action in [F5].
+  Press '[' for the previous GPU, ']' for the next GPU; selection wraps around.
   Diagnosis includes trends, related alerts and investigation steps.
 
 COMPATIBILITY SHORTCUTS

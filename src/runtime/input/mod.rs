@@ -925,6 +925,157 @@ mod tests {
         }
         alive
     }
+
+    #[test]
+    fn overview_gpu_buttons_match_visible_labels_and_switch_devices_across_layouts() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        use rstop::config::LayoutNode;
+
+        for layout in ["balanced", "compute", "expanded", "custom"] {
+            for (width, height) in [(60, 18), (100, 38), (160, 48)] {
+                run(|input, app| {
+                    app.set_view(View::Overview);
+                    app.snapshot.gpus = vec![
+                        Gpu {
+                            id: 3,
+                            name: "First device".into(),
+                            ..Default::default()
+                        },
+                        Gpu {
+                            id: 7,
+                            name: "Second device".into(),
+                            ..Default::default()
+                        },
+                    ];
+                    match layout {
+                        "compute" => app.config.layout = layout.into(),
+                        "expanded" => app.config.display.overview_panel = "gpu".into(),
+                        "custom" => {
+                            app.config.custom_layout = Some(LayoutNode::Split {
+                                direction: "horizontal".into(),
+                                children: vec![
+                                    LayoutNode::Panel {
+                                        panel: "gpu".into(),
+                                    },
+                                    LayoutNode::Panel {
+                                        panel: "processes".into(),
+                                    },
+                                ],
+                                weights: vec![1, 1],
+                            });
+                        }
+                        _ => {}
+                    }
+                    let mut terminal =
+                        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))
+                            .unwrap();
+                    terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                    if layout == "balanced" && width < 100 {
+                        assert!(app.controls.is_empty());
+                        return;
+                    }
+                    for (key, label, selected) in
+                        [('[', "Prev", 1), (']', "Next", 0), (']', "Next", 1)]
+                    {
+                        let rect = app
+                            .controls
+                            .iter()
+                            .find(|(_, code)| *code == KeyCode::Char(key))
+                            .unwrap()
+                            .0;
+                        assert!(rect.right() <= width && rect.bottom() <= height);
+                        let button: String = (rect.x..rect.right())
+                            .map(|x| terminal.backend().buffer()[(x, rect.y)].symbol())
+                            .collect();
+                        assert!(
+                            button.contains(key) && button.contains(label),
+                            "{layout} {width}x{height}: {button}"
+                        );
+                        assert!(!button.contains('/'));
+                        input.mouse(
+                            app,
+                            MouseEvent {
+                                kind: MouseEventKind::Down(MouseButton::Left),
+                                column: rect.x + rect.width / 2,
+                                row: rect.y,
+                                modifiers: KeyModifiers::NONE,
+                            },
+                        );
+                        let queued = input.queued_key.take().unwrap();
+                        assert_eq!(queued.code, KeyCode::Char(key));
+                        input.key(app, queued);
+                        assert_eq!(app.selected_gpu, selected);
+                        assert_eq!(app.view, View::Overview);
+                        terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                        let text: String = terminal
+                            .backend()
+                            .buffer()
+                            .content
+                            .iter()
+                            .map(|cell| cell.symbol())
+                            .collect();
+                        assert!(text.contains(&app.snapshot.gpus[selected].name));
+                        assert!(text.contains(&format!("GPU {}", app.snapshot.gpus[selected].id)));
+                        assert!(text.contains(&format!("{}/2", selected + 1)));
+                    }
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn overview_gpu_menu_and_shortcuts_wrap_and_share_selection_with_gpu_page() {
+        run(|input, app| {
+            app.set_view(View::Overview);
+            app.snapshot.gpus = vec![Gpu::default(); 2];
+            for (label, key, selected) in [("Previous GPU", '[', 1), ("Next GPU", ']', 0)] {
+                assert!(
+                    app.commands()
+                        .iter()
+                        .any(|(name, code)| name == label && *code == KeyCode::Char(key))
+                );
+                press(input, app, KeyCode::F(5));
+                let menu = app.ui_menu.as_mut().unwrap();
+                menu.selected = menu
+                    .items
+                    .iter()
+                    .position(|(name, _)| name == label)
+                    .unwrap();
+                press(input, app, KeyCode::Enter);
+                assert_eq!(app.selected_gpu, selected);
+                assert_eq!(app.view, View::Overview);
+            }
+            press(input, app, KeyCode::Char('['));
+            assert_eq!(app.selected_gpu, 1);
+            app.set_view(View::Gpu);
+            assert_eq!(app.selected_gpu, 1);
+            press(input, app, KeyCode::Char(']'));
+            app.set_view(View::Overview);
+            assert_eq!(app.selected_gpu, 0);
+
+            app.config.display.overview_panel = "gpu".into();
+            for count in [1, 0] {
+                let mut snapshot = app.snapshot.clone();
+                snapshot.gpus.truncate(count);
+                app.ingest(snapshot);
+                let mut terminal =
+                    ratatui::Terminal::new(ratatui::backend::TestBackend::new(60, 18)).unwrap();
+                terminal.draw(|frame| rstop::ui::draw(frame, app)).unwrap();
+                assert!(app.controls.is_empty());
+                assert!(
+                    !app.display_menu()
+                        .items
+                        .iter()
+                        .any(|(_, code)| matches!(code, KeyCode::Char('[' | ']')))
+                );
+                for key in ['[', ']'] {
+                    press(input, app, KeyCode::Char(key));
+                    assert_eq!(app.selected_gpu, 0);
+                }
+            }
+        });
+    }
+
     #[test]
     fn arrows_cycle_all_tabs_without_scrolling_or_collapsing_processes() {
         for optional_views in [false, true] {
