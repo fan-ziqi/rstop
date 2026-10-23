@@ -157,10 +157,11 @@ impl Target {
                 let args: Vec<_> = args.iter().map(String::as_str).collect();
                 let output =
                     crate::discovery::command_with_stderr(program, &args, Duration::from_secs(4))?;
+                let output = tail_lines(&output, lines);
                 let empty = if output.trim().is_empty() {
                     "No saved log entries are available."
                 } else {
-                    &output
+                    output
                 };
                 format!("Source: {}\n\n{}", self.title(), empty)
             }
@@ -180,6 +181,18 @@ impl Target {
             }
         };
         Ok(clean(&body))
+    }
+}
+
+/// Keeps the newest `lines` lines; commands such as macOS `log show` have no line limit of their own.
+fn tail_lines(text: &str, lines: usize) -> &str {
+    match text
+        .trim_end_matches('\n')
+        .rmatch_indices('\n')
+        .nth(lines.saturating_sub(1))
+    {
+        Some((index, _)) => &text[index + 1..],
+        None => text,
     }
 }
 
@@ -437,6 +450,14 @@ fn clean(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn command_output_keeps_only_the_newest_lines() {
+        assert_eq!(super::tail_lines("a\nb\nc\n", 2), "b\nc\n");
+        assert_eq!(super::tail_lines("a\nb\nc", 1), "c");
+        assert_eq!(super::tail_lines("a\nb", 5), "a\nb");
+        assert_eq!(super::tail_lines("", 3), "");
+    }
+
     use super::*;
 
     #[test]
