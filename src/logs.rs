@@ -157,7 +157,7 @@ impl Target {
                 let args: Vec<_> = args.iter().map(String::as_str).collect();
                 let output =
                     crate::discovery::command_with_stderr(program, &args, Duration::from_secs(4))?;
-                let output = tail_lines(&output, lines);
+                let output = limit_command_output(program, &args, &output, lines);
                 let empty = if output.trim().is_empty() {
                     "No saved log entries are available."
                 } else {
@@ -184,7 +184,22 @@ impl Target {
     }
 }
 
-/// Keeps the newest `lines` lines; commands such as macOS `log show` have no line limit of their own.
+fn limit_command_output<'a>(
+    program: &str,
+    args: &[&str],
+    output: &'a str,
+    lines: usize,
+) -> &'a str {
+    // Other log sources already use --lines, --tail, or -MaxEvents. In particular,
+    // Windows events are newest first and Format-List expands each event into multiple lines.
+    if program == "log" && args.first() == Some(&"show") {
+        tail_lines(output, lines)
+    } else {
+        output
+    }
+}
+
+/// macOS `log show` has no native line limit and returns entries oldest first.
 fn tail_lines(text: &str, lines: usize) -> &str {
     match text
         .trim_end_matches('\n')
@@ -450,6 +465,33 @@ fn clean(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_log_limits_preserve_newest_first_multiline_events() {
+        let text =
+            "TimeCreated : 12:00\nMessage : NEWEST\n\nTimeCreated : 11:00\nMessage : OLDER\n";
+        for (program, args) in [
+            ("powershell.exe", vec!["-Command", "Get-WinEvent"]),
+            ("journalctl", vec!["--lines", "2"]),
+            ("docker", vec!["logs", "--tail", "2"]),
+            ("podman", vec!["logs", "--tail", "2"]),
+        ] {
+            assert_eq!(super::limit_command_output(program, &args, text, 2), text);
+        }
+    }
+
+    #[test]
+    fn macos_log_show_is_limited_without_changing_other_commands() {
+        let text = "old\nnewer\nnewest\n";
+        assert_eq!(
+            super::limit_command_output("log", &["show", "--last", "10m"], text, 2),
+            "newer\nnewest\n"
+        );
+        assert_eq!(
+            super::limit_command_output("log", &["stream"], text, 2),
+            text
+        );
+    }
+
     #[test]
     fn command_output_keeps_only_the_newest_lines() {
         assert_eq!(super::tail_lines("a\nb\nc\n", 2), "b\nc\n");
