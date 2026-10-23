@@ -25,7 +25,7 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/fan-ziqi/rstop/releases/latest/download/rstop-installer.ps1 | iex"
 ```
 
-Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Normal monitoring checks GitHub in the background on launch and every 15 minutes, without caching results. A newer stable release opens a compact dialog with its Release link and **Upgrade** (default), **Ignore this session**, and **Skip this version**. Offline failures and up-to-date results stay silent. Read-only monitoring and replay do not check. Set `check_updates = false` to disable automatic checks.
+Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin` under your user profile; Rust is not required. Normal monitoring checks GitHub once in the background on launch, without caching results. A newer stable release opens a compact dialog with its Release link and **Upgrade** (default), **Ignore this session**, and **Skip this version**. Offline failures and up-to-date results stay silent. Read-only monitoring and replay do not check. Set `check_updates = false` to disable automatic checks.
 
 Open the Esc menu and choose **Check for updates** (or press `u` in the menu) to check in an update window. The window shows progress, available updates, up-to-date results, or errors with a retry option. Manual checks also work when automatic checks are disabled. Use `rstop update --check` to check from the command line, `rstop update` to install an update, or rerun the installer. Updates require an installer-managed copy. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases) are also available for manual installation.
 

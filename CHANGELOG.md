@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Check for updates automatically only once on launch; keep manual checks available in the menu and CLI.
 - Check public GitHub Release redirects and install the selected tag directly, avoiding REST API rate limits in the update dialog and CLI, including on Windows.
 
 ## 0.1.5

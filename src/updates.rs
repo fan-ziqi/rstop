@@ -6,7 +6,6 @@ use std::{sync::atomic::Ordering, sync::mpsc, thread, time::Duration};
 const LATEST: &str = "https://github.com/fan-ziqi/rstop/releases/latest";
 const RELEASES: &str = "https://github.com/fan-ziqi/rstop/releases/tag/";
 const DOWNLOADS: &str = "https://github.com/fan-ziqi/rstop/releases/download/";
-const CHECK_INTERVAL: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Release {
@@ -119,21 +118,18 @@ pub fn check_once_background(sender: mpsc::Sender<Event>) {
     }
 }
 
-pub fn check_background(sender: mpsc::Sender<Event>) -> Option<thread::JoinHandle<()>> {
-    thread::Builder::new()
+/// Check once at startup; current versions and network failures stay silent.
+pub fn check_background(sender: mpsc::Sender<Event>) {
+    let _ = thread::Builder::new()
         .name("rstop-update-check".into())
         .spawn(move || {
-            while !crate::STOP.load(Ordering::Relaxed) {
-                if let Ok(release) = latest()
-                    && release.newer_than(env!("CARGO_PKG_VERSION"))
-                    && sender.send(Event::Available(release)).is_err()
-                {
-                    break;
-                }
-                thread::park_timeout(CHECK_INTERVAL);
+            if !crate::STOP.load(Ordering::Relaxed)
+                && let Ok(release) = latest()
+                && release.newer_than(env!("CARGO_PKG_VERSION"))
+            {
+                let _ = sender.send(Event::Available(release));
             }
-        })
-        .ok()
+        });
 }
 
 pub fn latest() -> Result<Release> {

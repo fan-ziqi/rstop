@@ -207,9 +207,9 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
     let (detail_tx, detail_rx) = mpsc::channel();
     let (action_tx, action_rx) = mpsc::channel();
     let (update_tx, update_rx) = mpsc::channel();
-    let update_worker = (config.check_updates && !args.read_only && !app.replay)
-        .then(|| rstop::updates::check_background(update_tx.clone()))
-        .flatten();
+    if config.check_updates && !args.read_only && !app.replay {
+        rstop::updates::check_background(update_tx.clone());
+    }
     let mut pending_update = None;
     let mut seen_updates = std::collections::HashSet::new();
     let mut manual_check_running = false;
@@ -410,9 +410,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
         Ok(())
     })();
     STOP.store(true, Ordering::Relaxed);
-    if let Some(worker) = update_worker {
-        worker.thread().unpark();
-    }
     sampler.thread().unpark();
     for worker in &discovery_workers {
         worker.thread().unpark();
