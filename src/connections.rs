@@ -265,13 +265,14 @@ impl Collector {
             }
             match crate::discovery::command(
                 "lsof",
-                &["-nP", "-i", "-FpcnPtT"],
+                &["-nP", "-i", "-FpcfdnPtT"],
                 std::time::Duration::from_secs(2),
             ) {
                 Ok(text) => {
                     sample.connections = parse_lsof(&text);
                     sample.status = "lsof · readable processes · byte counters unavailable".into();
                     sample.owners_sampled_at = sample.sampled_at;
+                    sample.owner_scan_complete = true;
                 }
                 Err(error) => sample.status = format!("Connection query failed: {error}"),
             }
@@ -459,37 +460,85 @@ pub fn parse_netstat(text: &str) -> Vec<Connection> {
         .collect()
 }
 pub fn parse_lsof(text: &str) -> Vec<Connection> {
+    fn finish(
+        rows: &mut Vec<Connection>,
+        row: &mut Connection,
+        pid: u32,
+        name: &str,
+        fd: &str,
+        socket: &str,
+    ) {
+        let mut row = std::mem::take(row);
+        if row.protocol.is_empty() || row.local.is_empty() {
+            return;
+        }
+        // Darwin's device character field identifies the socket PCB, shared by dup'd fds.
+        // Keep descriptors separate when that identity is unavailable.
+        let identity = if !socket.is_empty() && socket != "0x0" {
+            format!("socket:{socket}")
+        } else if !fd.is_empty() {
+            format!("fd:{fd}")
+        } else {
+            format!("row:{}", rows.len())
+        };
+        row.id = format!(
+            "{pid}:{}:{}->{}:{identity}",
+            row.protocol, row.local, row.remote
+        );
+        row.pids = vec![pid];
+        row.process_names = vec![name.into()];
+        rows.push(row);
+    }
+
     let mut result = vec![];
-    let (mut pid, mut name, mut protocol) = (0u32, String::new(), String::new());
+    let (mut pid, mut name) = (0u32, "");
+    let (mut fd, mut socket) = ("", "");
+    let mut row = Connection::default();
     for line in text.lines() {
         let Some((tag, value)) = line.split_at_checked(1) else {
             continue;
         };
         match tag {
-            "p" => pid = value.parse().unwrap_or(0),
-            "c" => name = value.into(),
-            "P" => protocol = value.to_lowercase(),
-            "n" if !protocol.is_empty() => {
-                let (local, remote) = value.split_once("->").unwrap_or((value, "*:*"));
-                result.push(Connection {
-                    id: format!("{pid}:{protocol}:{value}"),
-                    protocol: protocol.clone(),
-                    local: local.into(),
-                    remote: remote.into(),
-                    pids: vec![pid],
-                    process_names: vec![name.clone()],
-                    state: "BOUND".into(),
-                    ..Default::default()
-                });
+            "p" | "f" => {
+                finish(&mut result, &mut row, pid, name, fd, socket);
+                socket = "";
+                if tag == "p" {
+                    pid = value.parse().unwrap_or(0);
+                    name = "";
+                    fd = "";
+                } else {
+                    fd = value;
+                }
             }
-            "T" if value.starts_with("ST=") => {
-                if let Some(row) = result.last_mut() {
-                    row.state = value[3..].into();
+            "c" => name = value,
+            "d" => socket = value,
+            "P" => row.protocol = value.to_lowercase(),
+            "n" => {
+                let (local, remote) = value.split_once("->").unwrap_or((value, "*:*"));
+                row.local = local.into();
+                row.remote = remote.into();
+            }
+            "T" => {
+                if let Some(state) = value.strip_prefix("ST=") {
+                    row.state = state.into();
+                } else if let Some(bytes) = value.strip_prefix("QR=") {
+                    row.receive_queue = bytes.parse().ok();
+                } else if let Some(bytes) = value.strip_prefix("QS=") {
+                    row.send_queue = bytes.parse().ok();
                 }
             }
             _ => {}
         }
     }
+    finish(&mut result, &mut row, pid, name, fd, socket);
+    for row in &mut result {
+        if row.state.is_empty() {
+            row.state = "BOUND".into();
+        }
+    }
+    // A socket duplicated across several descriptors of one process is listed once per fd.
+    let mut seen = std::collections::HashSet::new();
+    result.retain(|row| seen.insert(row.id.clone()));
     result
 }
 

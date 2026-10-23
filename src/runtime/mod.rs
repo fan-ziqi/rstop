@@ -387,6 +387,8 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 continue;
             }
             if !event::poll(Duration::from_millis(80))? {
+                // Keep the loading spinner turning while a placeholder is on screen.
+                dirty = ui::animating();
                 continue;
             }
             match event::read()? {

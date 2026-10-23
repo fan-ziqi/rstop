@@ -265,3 +265,57 @@ fn live_tcp_payload_rates_follow_an_owned_transfer_when_ss_is_available() {
     assert_eq!(b.received.unwrap() - a.received.unwrap(), 8192);
     assert!(b.rx_per_sec.is_some_and(|v| v > 0.));
 }
+#[test]
+fn lsof_rows_keep_queue_sizes_and_drop_duplicate_descriptors() {
+    let rows = rstop::connections::parse_lsof(
+        "p7\ncapp\nf3\nd0xabc\ntIPv4\nPTCP\nn1.1.1.1:1->2.2.2.2:2\nTST=ESTABLISHED\nTQR=5\nTQS=9\nf4\nd0xabc\ntIPv4\nPTCP\nn1.1.1.1:1->2.2.2.2:2\nTST=ESTABLISHED\nTQR=5\nTQS=9\n",
+    );
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].receive_queue, Some(5));
+    assert_eq!(rows[0].send_queue, Some(9));
+}
+
+#[test]
+fn lsof_keeps_distinct_sockets_bound_to_the_same_endpoint() {
+    let rows = rstop::connections::parse_lsof(
+        "p7\ncapp\nf3\nd0xabc\nPUDP\nn*:5353\nTQR=5\nf4\nd0xdef\nPUDP\nn*:5353\nTQR=9\nf5\nPUDP\nn*:5353\nd0xabc\nTQR=5\n",
+    );
+    assert_eq!(rows.len(), 2);
+    assert_ne!(rows[0].id, rows[1].id);
+    assert_eq!(rows[0].receive_queue, Some(5));
+    assert_eq!(rows[1].receive_queue, Some(9));
+}
+
+#[test]
+fn lsof_keeps_unknown_socket_identities_and_resets_each_file_record() {
+    let rows = rstop::connections::parse_lsof(
+        "p7\ncapp\nf3\nPTCP\nn*:5353\nTST=LISTEN\nTQR=5\nf4\nd0x0\nPUDP\nn*:5353\nf5\nPUDP\nn*:5353\np8\ncother\nf3\nn*:9999\nf4\nPUDP\nn*:5353\n",
+    );
+    assert_eq!(rows.len(), 4);
+    let ids: std::collections::HashSet<_> = rows.iter().map(|row| &row.id).collect();
+    assert_eq!(ids.len(), 4);
+    assert_eq!(rows[1].state, "BOUND");
+    assert_eq!(rows[1].receive_queue, None);
+    assert_eq!(rows[3].pids, vec![8]);
+    assert_eq!(rows[3].process_names, vec!["other"]);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn live_lsof_identifies_duplicated_socket_descriptors() {
+    let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let duplicate = socket.try_clone().unwrap();
+    let address = socket.local_addr().unwrap().to_string();
+    let pid = std::process::id().to_string();
+    let output = rstop::discovery::command(
+        "lsof",
+        &["-a", "-p", &pid, "-nP", "-iUDP", "-FpcfdnPtT"],
+        Duration::from_secs(3),
+    )
+    .unwrap();
+    let rows = rstop::connections::parse_lsof(&output);
+    let owned: Vec<_> = rows.iter().filter(|row| row.local == address).collect();
+    assert_eq!(owned.len(), 1, "{output}");
+    assert!(owned[0].id.contains(":socket:"), "{output}");
+    drop(duplicate);
+}

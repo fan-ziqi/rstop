@@ -111,12 +111,38 @@ pub(super) fn field(label: &str, value: impl Into<String>, p: Palette) -> Line<'
     ])
 }
 
+static ANIMATING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// True when the last frame showed a loading spinner and needs periodic redraws.
+pub fn animating() -> bool {
+    ANIMATING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub(super) fn begin_frame() {
+    ANIMATING.store(false, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn spinner() -> char {
+    const FRAMES: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis());
+    FRAMES[(ms / 80) as usize % FRAMES.len()]
+}
+
 pub(super) fn empty(frame: &mut Frame, area: Rect, title: &str, hint: &str, p: Palette) {
     if area.is_empty() {
         return;
     }
+    let loading = title.starts_with("Loading");
+    let marker = if loading {
+        ANIMATING.store(true, std::sync::atomic::Ordering::Relaxed);
+        spinner()
+    } else {
+        '◇'
+    };
     let lines = vec![
-        Line::styled(format!("◇ {title}"), Style::new().fg(p.muted).bold()),
+        Line::styled(format!("{marker} {title}"), Style::new().fg(p.muted).bold()),
         Line::styled(hint.to_string(), Style::new().fg(p.muted)),
     ];
     let height = area.height.min(2);

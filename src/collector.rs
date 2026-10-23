@@ -305,22 +305,30 @@ impl Collector {
                 .total_cmp(&a.rx_per_sec)
                 .then(a.name.cmp(&b.name))
         });
-        let disks = self
-            .disks
-            .iter()
-            .filter(|d| d.total_space() > 0)
-            .map(|d| Disk {
-                name: d.name().to_string_lossy().into_owned(),
-                mount: d.mount_point().to_string_lossy().into_owned(),
-                filesystem: d.file_system().to_string_lossy().into_owned(),
-                kind: format!("{:?}", d.kind()),
-                removable: d.is_removable(),
-                available: d.available_space(),
-                extra: filesystem_fields(d.mount_point()),
-                total: d.total_space(),
-                used: d.total_space().saturating_sub(d.available_space()),
-            })
-            .collect();
+        let disks =
+            self.disks
+                .iter()
+                .filter(|d| d.total_space() > 0)
+                // The sealed read-only system volume shares its APFS container with the Data volume.
+                .filter(|d| {
+                    !(cfg!(target_os = "macos")
+                        && d.mount_point() == std::path::Path::new("/")
+                        && self.disks.iter().any(|o| {
+                            o.mount_point() == std::path::Path::new("/System/Volumes/Data")
+                        }))
+                })
+                .map(|d| Disk {
+                    name: d.name().to_string_lossy().into_owned(),
+                    mount: d.mount_point().to_string_lossy().into_owned(),
+                    filesystem: d.file_system().to_string_lossy().into_owned(),
+                    kind: format!("{:?}", d.kind()),
+                    removable: d.is_removable(),
+                    available: d.available_space(),
+                    extra: filesystem_fields(d.mount_point()),
+                    total: d.total_space(),
+                    used: d.total_space().saturating_sub(d.available_space()),
+                })
+                .collect();
         let counters = read_disk_counters();
         let mut disk_io: Vec<_> = counters
             .iter()

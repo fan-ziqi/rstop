@@ -190,57 +190,76 @@ pub fn discover_without_platform_gpu(config: &Config) -> BTreeMap<String, Value>
     }
     #[cfg(target_os = "macos")]
     {
-        probe(
-            &mut extra,
-            "CPU state / kernel counters",
-            "sysctl",
-            &["kern.cp_time", "vm.swapusage", "hw.memsize"],
-            2,
-        );
-        probe(&mut extra, "Memory pages", "vm_stat", &[], 2);
-        probe(
-            &mut extra,
-            "Disk I/O details",
-            "iostat",
-            &["-d", "-w", "1", "-c", "2"],
-            3,
-        );
-        probe(&mut extra, "Interfaces and errors", "netstat", &["-ib"], 2);
-        probe(
-            &mut extra,
-            "Connections and owners",
-            "lsof",
-            &["-nP", "-i", "-FpcnT"],
-            3,
-        );
-        probe(
-            &mut extra,
-            "Apple power / thermal",
-            "powermetrics",
-            &[
-                "--samplers",
-                "cpu_power,gpu_power,ane_power,smc",
-                "-n",
-                "1",
-                "-i",
-                "1000",
-            ],
-            3,
-        );
-        probe(
-            &mut extra,
-            "Wi-Fi",
-            "system_profiler",
-            &["SPAirPortDataType", "-json", "-detailLevel", "mini"],
-            4,
-        );
-        probe(
-            &mut extra,
-            "Local virtual machines",
-            "virsh",
-            &["--connect", "qemu:///session", "domstats", "--all"],
-            3,
-        );
+        // Independent probes run in parallel so the slowest one bounds the pass, not the sum.
+        let mut jobs: Vec<(&str, &str, &[&str], u64)> = vec![
+            (
+                "CPU state / kernel counters",
+                "sysctl",
+                &["vm.swapusage", "hw.memsize"],
+                2,
+            ),
+            ("Memory pages", "vm_stat", &[], 2),
+            (
+                "Disk I/O details",
+                "iostat",
+                &["-d", "-w", "1", "-c", "2"],
+                3,
+            ),
+            ("Interfaces and errors", "netstat", &["-ib"], 2),
+            (
+                "Connections and owners",
+                "lsof",
+                &["-nP", "-i", "-FpcnT"],
+                3,
+            ),
+            (
+                "Wi-Fi",
+                "system_profiler",
+                &["SPAirPortDataType", "-json", "-detailLevel", "mini"],
+                4,
+            ),
+            (
+                "Local virtual machines",
+                "virsh",
+                &["--connect", "qemu:///session", "domstats", "--all"],
+                3,
+            ),
+        ];
+        // powermetrics refuses to run without root; do not spawn it every pass just to fail.
+        if unsafe { libc::geteuid() } == 0 {
+            jobs.push((
+                "Apple power / thermal",
+                "powermetrics",
+                &[
+                    "--samplers",
+                    "cpu_power,gpu_power,ane_power",
+                    "-n",
+                    "1",
+                    "-i",
+                    "1000",
+                ],
+                3,
+            ));
+        }
+        let results: Vec<_> = std::thread::scope(|scope| {
+            let handles: Vec<_> = jobs
+                .iter()
+                .map(|&(name, program, args, seconds)| {
+                    scope.spawn(move || {
+                        let mut one = BTreeMap::new();
+                        probe(&mut one, name, program, args, seconds);
+                        one
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .filter_map(|handle| handle.join().ok())
+                .collect()
+        });
+        for one in results {
+            extra.extend(one);
+        }
     }
     #[cfg(target_os = "windows")]
     {

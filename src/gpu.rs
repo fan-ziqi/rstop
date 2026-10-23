@@ -172,6 +172,16 @@ impl GpuCollector {
                 processes: HashMap::new(),
             };
         }
+        if cfg!(target_os = "macos") {
+            return Self {
+                nvml: None,
+                status: "NVML not supported on macOS".into(),
+                last_seen: HashMap::new(),
+                enabled,
+                details: HashMap::new(),
+                processes: HashMap::new(),
+            };
+        }
         match Nvml::init() {
             Ok(nvml) => Self {
                 nvml: Some(nvml),

@@ -203,7 +203,10 @@ fn optional_bytes(value: Option<u64>) -> String {
     value.map(|v| bytes(v as f64)).unwrap_or_else(|| "—".into())
 }
 
+pub use visuals::animating;
+
 pub fn draw(frame: &mut Frame, app: &mut App) {
+    visuals::begin_frame();
     let mut p = palette(&app.config.theme);
     for (key, value) in &app.config.custom_colors {
         if let Some(color) = parse_color(value) {
