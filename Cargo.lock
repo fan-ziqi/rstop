@@ -1998,6 +1998,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "socket2",
  "starship-battery",
  "sysinfo",
  "toml",

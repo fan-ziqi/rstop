@@ -116,6 +116,13 @@ fn tcp_service_check_contacts_only_an_owned_listener_and_explains_the_boundary()
     assert!(report.contains("connected in"));
     assert!(report.contains("not that the application is healthy"));
     drop(listener);
+    // Reserve a TCP port without listening so no concurrent test can reuse the
+    // address between closing our listener and checking the refused connection.
+    let refused = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+    refused
+        .bind(&std::net::SocketAddr::from(([127, 0, 0, 1], 0)).into())
+        .unwrap();
+    let address = refused.local_addr().unwrap().as_socket().unwrap();
     let report = network_tools::check_target(&address.to_string()).unwrap();
     assert!(!report.contains(" · connected in"));
 }
