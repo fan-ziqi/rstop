@@ -44,12 +44,19 @@ pub fn merge(snapshot: &mut Snapshot) {
                 .parse::<f64>()
                 .ok()
             };
+            let cores = metric("gpu-core-count").map(|v| v as u32);
+            let chip = snapshot.cpu_name.trim().to_string();
+            let name = match (chip.is_empty(), cores) {
+                (false, Some(n)) => format!("{chip} GPU ({n} cores)"),
+                (false, None) => format!("{chip} GPU"),
+                _ => "Apple GPU".to_string(),
+            };
             let mut extra = std::collections::BTreeMap::new();
             extra.insert("IOKit performance statistics".into(), value.clone());
             extra.insert("memory_kind".into(), json!("unified system memory"));
             snapshot.gpus.push(Gpu {
                 id: 10000,
-                name: "Apple GPU".into(),
+                name,
                 vendor: "Apple".into(),
                 backend: "IOKit IOAccelerator".into(),
                 uuid: "apple-iokit".into(),

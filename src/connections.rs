@@ -272,6 +272,7 @@ impl Collector {
                     sample.connections = parse_lsof(&text);
                     sample.status = "lsof · readable processes · byte counters unavailable".into();
                     sample.owners_sampled_at = sample.sampled_at;
+                    sample.owner_scan_complete = true;
                 }
                 Err(error) => sample.status = format!("Connection query failed: {error}"),
             }

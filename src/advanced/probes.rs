@@ -194,7 +194,7 @@ pub fn discover_without_platform_gpu(config: &Config) -> BTreeMap<String, Value>
             &mut extra,
             "CPU state / kernel counters",
             "sysctl",
-            &["kern.cp_time", "vm.swapusage", "hw.memsize"],
+            &["vm.swapusage", "hw.memsize"],
             2,
         );
         probe(&mut extra, "Memory pages", "vm_stat", &[], 2);
@@ -219,7 +219,7 @@ pub fn discover_without_platform_gpu(config: &Config) -> BTreeMap<String, Value>
             "powermetrics",
             &[
                 "--samplers",
-                "cpu_power,gpu_power,ane_power,smc",
+                "cpu_power,gpu_power,ane_power",
                 "-n",
                 "1",
                 "-i",
