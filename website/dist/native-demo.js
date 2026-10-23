@@ -56,12 +56,10 @@
       this.paused=motion.matches;
       this.frame=0;
       this.scenario='live';
-      this.query='';this.sortKey=null;this.sortReverse=false;this.inspectedId=null;this.tree=false;
+      this.query='';this.editingFilter=false;this.sortKey=null;this.sortReverse=false;this.inspectedId=null;this.tree=false;
       this.generation=0;
       this.size=sizeFor(this.getBoundingClientRect().width);
-      this.innerHTML=`<div class="native-stage"><span class="native-loading" role="status">Loading rstop…</span></div>
-        <div class="native-table-tools" hidden><input type="search" aria-label="Filter rows" placeholder="Filter"><button type="button" data-native-action="tree" hidden aria-pressed="false">Tree</button><button type="button" data-native-action="close-details" hidden>Close details</button><span role="status" class="native-filter-status"></span></div>`;
-      this.addEventListener('input',event=> {if(event.target.matches('input')){this.query=event.target.value;this.scenario='live';this.lastRows=[];this.draw();}});
+      this.innerHTML=`<div class="native-stage"><span class="native-loading" role="status">Loading rstop…</span></div>`;
       this.addEventListener('pointerdown',event=>{if(event.target.closest('.native-stage')&&!event.target.closest('[role="button"]'))this.focus({preventScroll:true});});
       this.addEventListener('click',event=> {
         const button=event.target.closest('[data-native-view],[data-native-action],[data-native-row],[data-native-sort]');
@@ -73,17 +71,26 @@
           this.sortReverse=this.sortKey===button.dataset.nativeSort?!this.sortReverse:false;
           this.sortKey=button.dataset.nativeSort;this.scenario='live';this.lastRows=[];this.draw();this.focus({preventScroll:true});
         }
-        if (button.dataset.nativeAction==='tree') {this.tree=!this.tree;this.inspectedId=null;this.scenario='live';this.lastRows=[];this.draw();}
-        if (button.dataset.nativeAction==='close-details') {this.inspectedId=null;this.scenario='live';this.lastRows=[];this.draw();}
+        if (button.dataset.nativeAction==='filter') {this.editingFilter=true;this.inspectedId=null;this.draw();this.focus({preventScroll:true});}
       });
       this.addEventListener('keydown',event=> {
         const key=event.key;
-        if(event.target.matches('input')) {if(key==='Escape'){event.target.value='';this.query='';this.lastRows=[];this.draw();}return;}
+        if(this.editingFilter) {
+          if(['Escape','Enter','ArrowDown'].includes(key)) {
+            event.preventDefault();this.editingFilter=false;if(key==='Escape')this.query='';
+          } else if(key==='Backspace') {
+            event.preventDefault();this.query=Array.from(this.query).slice(0,-1).join('');
+          } else if(key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey) {
+            event.preventDefault();this.query+=key;
+          } else return;
+          this.lastRows=[];this.draw();return;
+        }
         if(event.target.matches('button')&&(key==='Enter'||key===' '))return;
-        if((key==='Enter'||key===' ')&&event.target.closest('[data-native-sort],[data-native-row]')){event.preventDefault();event.target.closest('[data-native-sort],[data-native-row]').dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}
+        if((key==='Enter'||key===' ')&&event.target.closest('[data-native-sort],[data-native-row],[data-native-action]')){event.preventDefault();event.target.closest('[data-native-sort],[data-native-row],[data-native-action]').dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}
         if(key==='Escape'&&this.inspectedId){event.preventDefault();this.inspectedId=null;this.lastRows=[];this.draw();return;}
-        if((key==='/'||key==='F3')&&!this.querySelector('.native-table-tools').hidden){event.preventDefault();this.querySelector('input').focus();return;}
-        if(key==='F4'&&!this.querySelector('.native-table-tools').hidden){event.preventDefault();this.hits.querySelector('[data-native-sort]')?.focus();return;}
+        if((key==='/'||key==='F3')&&['processes','network','containers','services'].includes(this.view)){event.preventDefault();this.editingFilter=true;this.inspectedId=null;this.draw();this.focus({preventScroll:true});return;}
+        if(key==='T'&&this.view==='processes'){event.preventDefault();this.tree=!this.tree;this.inspectedId=null;this.lastRows=[];this.draw();return;}
+        if(key==='F4'){event.preventDefault();this.hits?.querySelector('[data-native-sort]')?.focus();return;}
         if(key==='F5'){event.preventDefault();this.querySelector(`[data-native-view="${this.view}"]`)?.focus();return;}
         if(['ArrowDown','ArrowUp','Enter'].includes(key)&&this.filteredBindings?.length){
           event.preventDefault();const rows=this.filteredBindings,index=rows.findIndex(row=>row.id===this.inspectedId);
@@ -134,7 +141,7 @@
     load() {
       const generation=++this.generation, view=this.view, size=this.size;
       this.pending=true;
-      if(this.loadedView!==view){this.query='';this.sortKey=null;this.sortReverse=false;this.inspectedId=null;this.tree=false;this.querySelector('input').value='';this.loadedView=view;}
+      if(this.loadedView!==view){this.query='';this.editingFilter=false;this.sortKey=null;this.sortReverse=false;this.inspectedId=null;this.tree=false;this.loadedView=view;}
       this.loading=Promise.all([request(`assets/native/${view}-${size}.json`),request('assets/native/renderer.json')]).then(([pack,metadata])=> {
         if (generation!==this.generation) return;
         this.pack=pack;this.metadata=metadata;this.scenario='live';this.frame=0;this.lastRows=[];this.pending=false;
@@ -212,7 +219,7 @@
       let rows=[...(base.bindings||[])];
       const parsed=processQuery(this.query);
       if(this.query) rows=rows.filter(row=>this.view==='processes'?parsed.matches(row.model):JSON.stringify(row.model).toLowerCase().includes(this.query.toLowerCase()));
-      this.querySelector('.native-filter-status').textContent=this.view==='processes'?parsed.error:'';
+      this.filterError=this.view==='processes'?parsed.error:'';
       const keys={CPU:'cpu',RAM:'memory',NAME:'name',PID:'pid',USER:'user',GPU:'gpu_percent',VRAM:'gpu_memory',DESTINATION:'remote','RTT ms':'rtt_ms',DOWN:'rx_per_sec',UP:'tx_per_sec',STATE:'state',PROTO:'protocol',LOCAL:'local',RECEIVED:'received',SENT:'sent'};
       const ascendingKeys=['NAME','PID','USER','STATE','PROCESS','DESTINATION','PROTO','LOCAL','LPORT','DPORT'];
       if(this.sortKey){
@@ -250,7 +257,11 @@
         });
       }
       const [fx,fy,fw]=frame.filter;
-      if(fw>0&&this.query){this.overlayText(fx,fy,fw,'Filter: ',3);this.overlayText(fx+8,fy,fw-8,this.query);}
+      if(fw>0) {
+        if(this.query||this.editingFilter){this.overlayText(fx,fy,fw,'Filter: ',3);this.overlayText(fx+8,fy,fw-8,this.query+(this.editingFilter?'▏':''),this.filterError?9:4);}
+        const filter=node('g',{'data-native-action':'filter',role:'button',tabindex:0,'aria-label':this.filterError?`Filter rows: ${this.filterError}`:'Filter rows'});
+        filter.append(node('rect',{x:16+fx*8,y:16+fy*18,width:fw*8,height:18,fill:'transparent',class:'native-hit'}));this.hits.append(filter);
+      }
       const title= this.pack.rows[frame.rows[fy]]?.map(run=>run[1]).join('')||'';
       const count=title.match(/(?:PROCESSES|CONTAINERS|SERVICES|CONNECTIONS) (\d+)/);
       if(count){const at=title.indexOf(count[0])+count[0].lastIndexOf(count[1]);this.overlayText(at,fy,count[1].length,String(rows.length),5,1,true);}
@@ -280,13 +291,6 @@
       if(state)this.composeTable(frame,state.base,state.rows);else{this.overlays.replaceChildren();this.hits.replaceChildren();}
       this.setAttribute('data-frame',String(this.frame));
       this.setAttribute('data-scenario',this.scenario);
-      this.updateControls();
-    }
-    updateControls() {
-      this.querySelector('.native-table-tools').hidden=!['processes','network','containers','services'].includes(this.view);
-      this.querySelector('[data-native-action="tree"]').hidden=this.view!=='processes';
-      this.querySelector('[data-native-action="tree"]').setAttribute('aria-pressed',String(this.tree));
-      this.querySelector('[data-native-action="close-details"]').hidden=!this.inspectedId;
     }
   }
   customElements.define('rstop-native',NativeDemo);

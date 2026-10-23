@@ -9,12 +9,6 @@ rstop-native .native-hit {cursor:pointer;}
 rstop-native [data-native-view]:hover .native-hit {fill:#7cb8a519;}
 rstop-native [data-native-view]:focus-visible {outline:none;}
 rstop-native [data-native-view]:focus-visible .native-hit {stroke:var(--native-5);stroke-width:1.5;}
-rstop-native .native-table-tools {display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 15px;background:#10171f;border-top:1px solid #243342;color:#8fa0b6;font:10px/1.5 'Rstop Terminal',monospace;}
-rstop-native .native-table-tools[hidden] {display:none;}
-rstop-native .native-table-tools input {min-width:100px;flex:1;max-width:390px;border:1px solid #344557;border-radius:3px;padding:6px 9px;color:#d7e2f1;background:#0a0f19;font:inherit;}
-rstop-native .native-table-tools button {border:1px solid #344557;border-radius:3px;padding:5px 9px;color:#a5c9bb;background:transparent;font:inherit;}
-rstop-native .native-table-tools button[aria-pressed="true"] {color:#ddf4e7;background:#243b2d;border-color:#7cb8a5;}
-rstop-native .native-filter-status {font-size:9px;color:#d897a0;}
 .demo-theme-picker {margin:24px auto 0;}
 .hero-product .terminal {transform:none;}
 @media(max-width:650px) {

@@ -14,7 +14,7 @@ The website renders terminal cells produced by **`rstop::ui::draw`**, the same R
 python3 website/tools/generate-native-demo.py
 ```
 
-One terminal contains all eight views, with nine theme buttons beneath the window. The browser displays inline SVG text and shapes from the native cells; table interactions reuse native row and detail layouts. Lists support filtering, process columns support sorting, and rows open their native detail panels. Use 1–8 to change views, ↑↓ to select rows, / to focus the filter, and Esc to close details or clear the filter. These are bounded demonstrations, not a browser port of the complete CLI.
+One terminal contains all eight views, with nine theme buttons beneath the window. The browser displays inline SVG text and shapes from the native cells; table interactions reuse native row and detail layouts. Lists support filtering in the terminal's own filter field, process columns support sorting, and rows open their native detail panels. Use 1–8 to change views, ↑↓ to select rows, / or F3 to edit the filter, T to toggle the process tree, and Esc to close details or clear the filter. These are bounded demonstrations, not a browser port of the complete CLI.
 
 The generator checks every exported character and style against the native terminal buffer. Process filter syntax follows `src/filter.rs`; other list filters use text search. No process management, packet capture or host commands run in the browser.
 
