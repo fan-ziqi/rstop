@@ -3,6 +3,131 @@ use crate::model::*;
 use serde_json::Value;
 #[cfg(target_os = "macos")]
 use serde_json::json;
+/// Reads the accelerator's `PerformanceStatistics` and `gpu-core-count` straight from the IOKit
+/// registry. Spawning `ioreg` serializes the whole registry entry (about 50 KB, ~19 ms of CPU) every
+/// sample; asking IOKit for two properties costs microseconds. The text mimics `ioreg` output so the
+/// parser in `merge` and the saved recordings keep working.
+#[cfg(target_os = "macos")]
+mod iokit {
+    use std::ffi::{CStr, CString, c_char, c_void};
+
+    type Ref = *const c_void;
+    const UTF8: u32 = 0x0800_0100;
+    const SINT64: i32 = 4;
+
+    #[link(name = "IOKit", kind = "framework")]
+    unsafe extern "C" {
+        fn IOServiceMatching(name: *const c_char) -> *mut c_void;
+        fn IOServiceGetMatchingServices(port: u32, matching: Ref, iterator: *mut u32) -> i32;
+        fn IOIteratorNext(iterator: u32) -> u32;
+        fn IOObjectRelease(object: u32) -> i32;
+        fn IORegistryEntryCreateCFProperty(entry: u32, key: Ref, alloc: Ref, options: u32) -> Ref;
+    }
+    #[link(name = "CoreFoundation", kind = "framework")]
+    unsafe extern "C" {
+        fn CFStringCreateWithCString(alloc: Ref, text: *const c_char, encoding: u32) -> Ref;
+        fn CFRelease(object: Ref);
+        fn CFGetTypeID(object: Ref) -> usize;
+        fn CFDictionaryGetTypeID() -> usize;
+        fn CFNumberGetTypeID() -> usize;
+        fn CFStringGetTypeID() -> usize;
+        fn CFDictionaryGetCount(dictionary: Ref) -> isize;
+        fn CFDictionaryGetKeysAndValues(dictionary: Ref, keys: *mut Ref, values: *mut Ref);
+        fn CFStringGetCString(text: Ref, buffer: *mut c_char, size: isize, encoding: u32) -> u8;
+        fn CFNumberGetValue(number: Ref, kind: i32, out: *mut c_void) -> u8;
+    }
+
+    struct Owned(Ref);
+    impl Drop for Owned {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                unsafe { CFRelease(self.0) };
+            }
+        }
+    }
+
+    fn number(value: Ref) -> Option<i64> {
+        let mut out = 0i64;
+        (unsafe { CFGetTypeID(value) == CFNumberGetTypeID() }
+            && unsafe { CFNumberGetValue(value, SINT64, (&mut out as *mut i64).cast()) } != 0)
+            .then_some(out)
+    }
+
+    fn text(value: Ref) -> Option<String> {
+        if unsafe { CFGetTypeID(value) != CFStringGetTypeID() } {
+            return None;
+        }
+        let mut buffer = [0 as c_char; 256];
+        (unsafe { CFStringGetCString(value, buffer.as_mut_ptr(), buffer.len() as isize, UTF8) }
+            != 0)
+            .then(|| {
+                unsafe { CStr::from_ptr(buffer.as_ptr()) }
+                    .to_string_lossy()
+                    .into_owned()
+            })
+    }
+
+    fn property(entry: u32, key: &str) -> Option<Owned> {
+        let key = CString::new(key).ok()?;
+        let key = Owned(unsafe { CFStringCreateWithCString(std::ptr::null(), key.as_ptr(), UTF8) });
+        if key.0.is_null() {
+            return None;
+        }
+        let value = unsafe { IORegistryEntryCreateCFProperty(entry, key.0, std::ptr::null(), 0) };
+        (!value.is_null()).then_some(Owned(value))
+    }
+
+    pub fn accelerator_text() -> Option<String> {
+        let mut iterator = 0u32;
+        let matching = unsafe { IOServiceMatching(c"IOAccelerator".as_ptr()) };
+        if matching.is_null()
+            || unsafe { IOServiceGetMatchingServices(0, matching, &mut iterator) } != 0
+        {
+            return None;
+        }
+        let mut out = String::new();
+        loop {
+            let entry = unsafe { IOIteratorNext(iterator) };
+            if entry == 0 {
+                break;
+            }
+            if out.is_empty() {
+                if let Some(cores) = property(entry, "gpu-core-count").and_then(|v| number(v.0)) {
+                    out.push_str(&format!("  | \"gpu-core-count\" = {cores}\n"));
+                }
+                if let Some(stats) = property(entry, "PerformanceStatistics")
+                    && unsafe { CFGetTypeID(stats.0) == CFDictionaryGetTypeID() }
+                {
+                    let count = unsafe { CFDictionaryGetCount(stats.0) }.max(0) as usize;
+                    let mut keys = vec![std::ptr::null(); count];
+                    let mut values = vec![std::ptr::null(); count];
+                    unsafe {
+                        CFDictionaryGetKeysAndValues(
+                            stats.0,
+                            keys.as_mut_ptr(),
+                            values.as_mut_ptr(),
+                        )
+                    };
+                    let fields: Vec<_> = keys
+                        .iter()
+                        .zip(&values)
+                        .filter_map(|(key, value)| {
+                            Some(format!("\"{}\"={}", text(*key)?, number(*value)?))
+                        })
+                        .collect();
+                    out.push_str(&format!(
+                        "  |   \"PerformanceStatistics\" = {{{}}}\n",
+                        fields.join(",")
+                    ));
+                }
+            }
+            unsafe { IOObjectRelease(entry) };
+        }
+        unsafe { IOObjectRelease(iterator) };
+        (!out.is_empty()).then_some(out)
+    }
+}
+
 /// Apple counters are independent of optional system_profiler/powermetrics probes.
 #[cfg(target_os = "macos")]
 pub fn discover(
@@ -10,11 +135,15 @@ pub fn discover(
 ) -> std::collections::BTreeMap<String, serde_json::Value> {
     let mut extra = std::collections::BTreeMap::new();
     if config.collect_gpu {
-        let value = crate::discovery::command(
-            "ioreg",
-            &["-r", "-c", "IOAccelerator", "-l"],
-            std::time::Duration::from_secs(3),
-        )
+        let value = match iokit::accelerator_text() {
+            Some(output) => Ok(output),
+            // Fall back to the tool if the registry cannot be queried directly.
+            None => crate::discovery::command(
+                "ioreg",
+                &["-r", "-c", "IOAccelerator", "-l"],
+                std::time::Duration::from_secs(3),
+            ),
+        }
         .map(|output| json!({"output":output,"sampled_at":crate::collector::unix_time()}))
         .unwrap_or_else(|error| json!({"error":error.to_string()}));
         extra.insert("Apple GPU / Neural Engine".into(), value);
@@ -186,4 +315,16 @@ pub fn merge(snapshot: &mut Snapshot) {
         }
     }
     let _ = snapshot;
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    #[test]
+    fn iokit_text_is_parseable_when_an_accelerator_exists() {
+        // CI virtual machines may expose no accelerator; only validate the format when present.
+        if let Some(text) = super::iokit::accelerator_text() {
+            assert!(text.contains("\"PerformanceStatistics\" = {"), "{text}");
+            assert!(text.contains("\"In use system memory\"="), "{text}");
+        }
+    }
 }
