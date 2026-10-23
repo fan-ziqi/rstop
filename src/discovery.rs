@@ -726,18 +726,24 @@ fn discover_services(inventory: &mut Inventory) {
 
 /// launchd reports `-N` when a job was ended by signal N. On-demand agents that
 /// launchd idles out or stops at logout end with SIGKILL/SIGTERM; that is not a failure.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn launchd_exit_is_failure(status: &str) -> bool {
     !matches!(status, "0" | "-9" | "-15")
 }
 
 /// launchd job plists live under these directories, named after the job label.
-#[cfg(target_os = "macos")]
-fn launchd_plist(label: &str, dirs: &[std::path::PathBuf]) -> Option<String> {
+#[cfg(any(target_os = "macos", test))]
+fn launchd_plist(label: &str, scope: &str, dirs: &[std::path::PathBuf]) -> Option<String> {
     if label.contains('/') || label.starts_with('.') {
         return None;
     }
+    let directory = match scope {
+        "user" => "LaunchAgents",
+        "system" => "LaunchDaemons",
+        _ => return None,
+    };
     dirs.iter()
+        .filter(|dir| dir.file_name().is_some_and(|name| name == directory))
         .map(|dir| dir.join(format!("{label}.plist")))
         .find(|path| path.is_file())
         .map(|path| path.to_string_lossy().into_owned())
@@ -784,7 +790,7 @@ fn discover_services(inventory: &mut Inventory) {
                         sub: format!("PID {} / exit {}", parts[0], parts[1]),
                         description: String::new(),
                         pid: parts[0].parse().ok(),
-                        extra: launchd_plist(parts[2], &plist_dirs)
+                        extra: launchd_plist(parts[2], "user", &plist_dirs)
                             .map(|path| {
                                 std::collections::BTreeMap::from([(
                                     "plist".to_string(),
@@ -914,7 +920,7 @@ pub fn parse_listeners(text: &str, protocol: &str) -> Vec<Listener> {
         .collect()
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod launchd_tests {
     use super::launchd_exit_is_failure;
 
@@ -925,5 +931,33 @@ mod launchd_tests {
         assert!(!launchd_exit_is_failure("-15"));
         assert!(launchd_exit_is_failure("127"));
         assert!(launchd_exit_is_failure("-11"));
+    }
+
+    #[test]
+    fn plist_lookup_keeps_user_and_system_scopes_separate() {
+        let root = std::env::temp_dir().join(format!("rstop-launchd-{}", std::process::id()));
+        let user = root.join("LaunchAgents");
+        let system = root.join("LaunchDaemons");
+        std::fs::create_dir_all(&user).unwrap();
+        std::fs::create_dir_all(&system).unwrap();
+        let label = "com.example.shared";
+        let user_plist = user.join(format!("{label}.plist"));
+        let system_plist = system.join(format!("{label}.plist"));
+        std::fs::write(&user_plist, "user").unwrap();
+        std::fs::write(&system_plist, "system").unwrap();
+        let dirs = [user, system];
+        assert_eq!(
+            super::launchd_plist(label, "system", &dirs).as_deref(),
+            system_plist.to_str()
+        );
+        assert_eq!(
+            super::launchd_plist(label, "user", &dirs).as_deref(),
+            user_plist.to_str()
+        );
+        std::fs::remove_file(&user_plist).unwrap();
+        assert!(super::launchd_plist(label, "user", &dirs).is_none());
+        assert!(super::launchd_plist(label, "unknown", &dirs).is_none());
+        assert!(super::launchd_plist("../shared", "system", &dirs).is_none());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
