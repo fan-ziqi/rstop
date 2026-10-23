@@ -54,6 +54,9 @@ fn server(status: u16, location: Option<&str>, body: &str) -> (String, thread::J
                 Err(error) => panic!("{error}"),
             }
         };
+        // Windows accepts inherit the listener's nonblocking mode. Request reads
+        // below use a timeout, so make the accepted stream blocking explicitly.
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
