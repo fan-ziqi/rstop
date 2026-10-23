@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5
+
+- Reduce macOS GPU sampling overhead with direct IOKit queries and an ioreg fallback.
+- Reuse workload tag recognition and refresh disk capacity every ten seconds to reduce sampling work.
+- Show battery charge state, time remaining and power in Overview and System.
+- Display network drop counters as plain numbers, with a clear fallback when unavailable.
+- Add an interactive native terminal demo to the website, with nine themes and matching installation controls.
+
 ## 0.1.4
 
 - Fix macOS launchd service status, plist discovery and system-domain service inspection.

@@ -1979,7 +1979,7 @@ checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
 
 [[package]]
 name = "rstop"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "arboard",
