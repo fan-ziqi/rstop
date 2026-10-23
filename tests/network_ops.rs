@@ -326,3 +326,38 @@ fn live_lsof_identifies_duplicated_socket_descriptors() {
     assert!(owned[0].id.contains(":socket:"), "{output}");
     drop(duplicate);
 }
+#[test]
+fn interface_drop_evidence_is_plain_text_not_debug_output() {
+    let mut app = App::new(Config {
+        alert_hold_seconds: 0,
+        ..Default::default()
+    });
+    let mut s = snapshot();
+    s.networks = vec![
+        rstop::model::Network {
+            name: "eth0".into(),
+            drops: Some(5),
+            ..Default::default()
+        },
+        rstop::model::Network {
+            name: "eth1".into(),
+            errors: 2,
+            drops: None,
+            ..Default::default()
+        },
+    ];
+    app.ingest(s);
+    let evidence: Vec<_> = diagnostics::findings(&app)
+        .into_iter()
+        .filter(|f| f.title.contains("errors/drops"))
+        .map(|f| f.evidence)
+        .collect();
+    assert!(
+        evidence.contains(&"Lifetime errors 0; drops 5".to_string()),
+        "{evidence:?}"
+    );
+    assert!(
+        evidence.contains(&"Lifetime errors 2; drops not reported".to_string()),
+        "{evidence:?}"
+    );
+}
