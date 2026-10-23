@@ -2,7 +2,7 @@ use super::{
     Palette, block, charts::gpu_plot, meter, optional, optional_bytes, processes::process_table,
     text,
 };
-use crate::{app::App, model::percent};
+use crate::app::App;
 use crossterm::event::KeyCode;
 use ratatui::{prelude::*, widgets::*};
 use std::collections::VecDeque;
@@ -167,6 +167,22 @@ pub(super) fn device_info(frame: &mut Frame, app: &mut App, p: Palette) {
     super::panes::draw(frame, area, 2, app, p, gpu_fields);
     app.popup_rect = area;
 }
+/// `used / capacity`; on unified memory the capacity is the GPU working-set limit and the pool is
+/// shared with system RAM, so say so instead of presenting it as separate video memory.
+pub(super) fn gpu_memory_text(gpu: &crate::model::Gpu, width: usize) -> String {
+    let used = optional_bytes(gpu.memory_used);
+    let capacity = optional_bytes(gpu.memory_capacity());
+    if !gpu.unified_memory {
+        return format!("{used} / {capacity}");
+    }
+    let long = format!("{used} / {capacity} limit · shared with RAM");
+    if long.chars().count() < width {
+        long
+    } else {
+        format!("{used} / {capacity} limit")
+    }
+}
+
 pub(super) fn gpu_content(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     if app.snapshot.gpus.is_empty() {
         let (title, hint) = if !app.config.collect_gpu && !app.replay {
@@ -292,10 +308,10 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_heig
                 inner,
                 vec![
                     Line::from(format!(
-                        "GPU {} · VRAM {} / {}",
+                        "GPU {} · {} {}",
                         optional(gpu.utilization, "%"),
-                        optional_bytes(gpu.memory_used),
-                        optional_bytes(gpu.memory_total)
+                        gpu.memory_label(),
+                        gpu_memory_text(gpu, 0)
                     )),
                     Line::from(format!(
                         "{} · {} · fan {}",
@@ -321,11 +337,7 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_heig
         })
         .spacing(1)
         .split(inner);
-        let used = gpu
-            .memory_used
-            .zip(gpu.memory_total)
-            .filter(|(_, t)| *t > 0)
-            .map(|(u, t)| percent(u, t));
+        let used = gpu.memory_percent();
         let load = vec![
             gpu.utilization
                 .map(|v| {
@@ -352,7 +364,7 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_heig
         let memory = vec![
             used.map(|v| {
                 meter(
-                    "VRAM",
+                    gpu.memory_label(),
                     v,
                     columns[1].width.saturating_sub(14) as usize,
                     p.purple,
@@ -360,12 +372,14 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_heig
                 )
             })
             .unwrap_or_else(|| {
-                Line::styled("VRAM — · counter unavailable", Style::new().fg(p.muted))
+                Line::styled(
+                    format!("{} — · counter unavailable", gpu.memory_label()),
+                    Style::new().fg(p.muted),
+                )
             }),
             Line::from(format!(
-                " {} / {}",
-                optional_bytes(gpu.memory_used),
-                optional_bytes(gpu.memory_total),
+                " {}",
+                gpu_memory_text(gpu, columns[1].width as usize)
             )),
         ];
         text(frame, columns[0], load, p);
@@ -375,12 +389,16 @@ fn gpu_cards(frame: &mut Frame, area: Rect, app: &mut App, p: Palette, card_heig
                 frame,
                 columns[2],
                 vec![
-                    Line::from(format!(
-                        "{} · fan {} · {} processes",
-                        gpu.performance_state.as_deref().unwrap_or("—"),
-                        optional(gpu.fan, "%"),
-                        gpu.processes.len()
-                    )),
+                    Line::from(if gpu.unified_memory {
+                        "No per-process GPU data (macOS)".to_string()
+                    } else {
+                        format!(
+                            "{} · fan {} · {} processes",
+                            gpu.performance_state.as_deref().unwrap_or("—"),
+                            optional(gpu.fan, "%"),
+                            gpu.processes.len()
+                        )
+                    }),
                     Line::styled(
                         format!(
                             "Core {} · MEM {}",
@@ -419,11 +437,7 @@ fn gpu_charts(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
                 "%",
             ),
             (
-                format!(
-                    "VRAM · {} / {}",
-                    optional_bytes(gpu.memory_used),
-                    optional_bytes(gpu.memory_total)
-                ),
+                format!("{} · {}", gpu.memory_label(), gpu_memory_text(gpu, 0)),
                 vec![("used", &h.vram, p.purple)],
                 100.,
                 "%",

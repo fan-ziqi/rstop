@@ -128,6 +128,70 @@ mod iokit {
     }
 }
 
+/// Asks Metal for the numbers `ioreg` does not expose: whether the device shares system memory and
+/// how much of it the GPU may keep resident. Loaded once, off the sampling thread.
+#[cfg(target_os = "macos")]
+mod metal {
+    use std::ffi::{c_char, c_void};
+    use std::sync::OnceLock;
+
+    #[derive(Clone, Copy, Debug)]
+    pub struct Info {
+        pub unified: bool,
+        pub working_set_limit: u64,
+    }
+
+    #[link(name = "Metal", kind = "framework")]
+    unsafe extern "C" {
+        fn MTLCreateSystemDefaultDevice() -> *mut c_void;
+    }
+    #[link(name = "objc")]
+    unsafe extern "C" {
+        fn sel_registerName(name: *const c_char) -> *mut c_void;
+        fn objc_msgSend();
+        fn objc_release(object: *mut c_void);
+    }
+
+    static INFO: OnceLock<Option<Info>> = OnceLock::new();
+
+    fn query() -> Option<Info> {
+        let device = unsafe { MTLCreateSystemDefaultDevice() };
+        if device.is_null() {
+            return None;
+        }
+        type SendU64 = unsafe extern "C" fn(*mut c_void, *mut c_void) -> u64;
+        type SendBool = unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool;
+        // objc_msgSend must be called through a pointer typed with the real return type.
+        let (send_u64, send_bool) = unsafe {
+            (
+                std::mem::transmute::<unsafe extern "C" fn(), SendU64>(objc_msgSend),
+                std::mem::transmute::<unsafe extern "C" fn(), SendBool>(objc_msgSend),
+            )
+        };
+        let info = unsafe {
+            Info {
+                unified: send_bool(device, sel_registerName(c"hasUnifiedMemory".as_ptr())),
+                working_set_limit: send_u64(
+                    device,
+                    sel_registerName(c"recommendedMaxWorkingSetSize".as_ptr()),
+                ),
+            }
+        };
+        unsafe { objc_release(device) };
+        Some(info)
+    }
+
+    /// Blocks on first use; call from a background thread.
+    pub fn load() -> Option<Info> {
+        *INFO.get_or_init(query)
+    }
+
+    /// Never blocks; `None` until `load` has finished or when Metal is unavailable.
+    pub fn cached() -> Option<Info> {
+        INFO.get().copied().flatten()
+    }
+}
+
 /// Apple counters are independent of optional system_profiler/powermetrics probes.
 #[cfg(target_os = "macos")]
 pub fn discover(
@@ -135,6 +199,7 @@ pub fn discover(
 ) -> std::collections::BTreeMap<String, serde_json::Value> {
     let mut extra = std::collections::BTreeMap::new();
     if config.collect_gpu {
+        let _ = metal::load();
         let value = match iokit::accelerator_text() {
             Some(output) => Ok(output),
             // Fall back to the tool if the registry cannot be queried directly.
@@ -183,6 +248,12 @@ pub fn merge(snapshot: &mut Snapshot) {
             let mut extra = std::collections::BTreeMap::new();
             extra.insert("IOKit performance statistics".into(), value.clone());
             extra.insert("memory_kind".into(), json!("unified system memory"));
+            // Metal answers asynchronously on first use; assume Apple Silicon is unified until then.
+            let metal = metal::cached();
+            let unified = metal.map_or(cfg!(target_arch = "aarch64"), |info| info.unified);
+            let limit = metal
+                .filter(|info| info.unified && info.working_set_limit > 0)
+                .map(|info| info.working_set_limit);
             snapshot.gpus.push(Gpu {
                 id: 10000,
                 name,
@@ -194,6 +265,9 @@ pub fn merge(snapshot: &mut Snapshot) {
                     .map(|v| v as u32),
                 memory_used: metric("In use system memory").map(|v| v as u64),
                 memory_total: Some(snapshot.memory.total),
+                unified_memory: unified,
+                memory_limit: limit,
+                process_status: "macOS does not report GPU memory or load per process".into(),
                 extra,
                 ..Default::default()
             });

@@ -136,11 +136,15 @@ pub fn gpu(gpu: &Gpu, filter: &str) -> Vec<Field> {
         };
         walk(v, key, group, &mut rows);
     }
-    if let Some((used, total)) = gpu.memory_used.zip(gpu.memory_total) {
+    if let Some((used, capacity)) = gpu.memory_used.zip(gpu.memory_capacity()) {
         rows.push((
             "3 · Memory".into(),
-            "memory free".into(),
-            bytes(total.saturating_sub(used) as f64),
+            if gpu.unified_memory {
+                "memory free (within GPU limit, shared with RAM)".into()
+            } else {
+                "memory free".into()
+            },
+            bytes(capacity.saturating_sub(used) as f64),
         ));
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));

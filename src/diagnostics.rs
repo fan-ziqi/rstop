@@ -129,13 +129,16 @@ pub fn findings(app: &App) -> Vec<Finding> {
         out.push(finding("storage", "CHECK",format!("{} has slow I/O",disk.name),format!("AWAIT {:.1} ms; queue {:?}; busy {:?}%",disk.await_ms.unwrap_or_default(),disk.queue_depth,disk.busy_percent), "I/O requests are taking time to finish; acceptable latency depends on the device and workload.", "Compare QUEUE and throughput over time. Processes: look for heavy readers/writers and blocked tasks; check device health before deleting files."));
     }
     for gpu in &s.gpus {
-        if gpu.memory_total.is_some_and(|v| v > 0)
-            && gpu
-                .memory_used
-                .zip(gpu.memory_total)
-                .is_some_and(|(u, t)| percent(u, t) >= 90.)
-        {
-            out.push(finding("gpu","CHECK",format!("GPU {} memory is nearly full",gpu.id),format!("{}: {} / {}",gpu.name,bytes(gpu.memory_used.unwrap_or_default() as f64),bytes(gpu.memory_total.unwrap_or_default() as f64)),"New GPU allocations may fail. High VRAM use alone does not show a memory leak.","GPU: inspect VRAM owners. Lower your job's batch/context size, or select a device with enough free memory; don't terminate unrelated jobs."));
+        if gpu.memory_percent().is_some_and(|v| v >= 90.) {
+            let (used, capacity) = (
+                bytes(gpu.memory_used.unwrap_or_default() as f64),
+                bytes(gpu.memory_capacity().unwrap_or_default() as f64),
+            );
+            if gpu.unified_memory {
+                out.push(finding("gpu","CHECK",format!("GPU {} memory is near its working-set limit",gpu.id),format!("{}: {used} / {capacity} limit; this memory is shared with system RAM",gpu.name),"New GPU allocations may fail, or the system may start compressing and swapping memory. High use alone does not show a memory leak.","Memory: compare with memory pressure. Close memory-heavy apps or lower your job's batch/context size."));
+            } else {
+                out.push(finding("gpu","CHECK",format!("GPU {} memory is nearly full",gpu.id),format!("{}: {used} / {capacity}",gpu.name),"New GPU allocations may fail. High VRAM use alone does not show a memory leak.","GPU: inspect VRAM owners. Lower your job's batch/context size, or select a device with enough free memory; don't terminate unrelated jobs."));
+            }
         }
         if gpu
             .temperature
@@ -633,10 +636,7 @@ pub fn resource_alerts(s: &crate::model::Snapshot, _config: &crate::config::Conf
         }
     }
     for g in &s.gpus {
-        if g.memory_used
-            .zip(g.memory_total)
-            .is_some_and(|(used, total)| total > 0 && percent(used, total) >= 90.)
-        {
+        if g.memory_percent().is_some_and(|v| v >= 90.) {
             alerts.push(format!("GPU {} memory nearly full", g.id));
         }
     }

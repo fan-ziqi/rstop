@@ -394,6 +394,7 @@ impl GpuCollector {
                             } else {
                                 process_errors.join("; ")
                             },
+                            ..Default::default()
                         });
                     }
                 }
