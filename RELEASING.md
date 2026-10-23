@@ -15,7 +15,7 @@ Dependency licenses are generated once in the tag's Linux gate from the complete
 
 Native build runners are Ubuntu 22.04 (both architectures), macOS 15 ARM/Intel, and Windows Server 2022 x64/Windows 11 ARM. A successful build does not establish real-device feature coverage; see [COVERAGE.md](COVERAGE.md).
 
-Release installers and the update library are provided by [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) and [axoupdater](https://github.com/axodotdev/axoupdater). Normal monitoring checks GitHub quietly on launch and every 15 minutes; results are not cached. Only a newer stable release opens the update dialog, with upgrade selected by default, a Release link, session ignore and a persistent version skip. The check has an eight-second deadline and is disabled in read-only/replay sessions or with `check_updates = false`. Checks read the public latest-release redirect, and upgrades use the selected tag's official installer URLs without REST API requests or tokens. The small [axoupdater patch](vendor/axoupdater/RSTOP-PATCH.md) accepts this resolved metadata while retaining its receipt and Windows replacement handling. Installation starts only after the user chooses upgrade, pins the displayed tag and requires the current executable's install receipt. CLI checks/updates remain available with `rstop update --check` and `rstop update`. Source builds and manually moved executables cannot overwrite a separately installed copy.
+Release installers and the update library are provided by [cargo-dist](https://axodotdev.github.io/cargo-dist/book/) and [axoupdater](https://github.com/axodotdev/axoupdater). Normal monitoring checks GitHub quietly once on launch; manual checks remain available in the menu and CLI. Only a newer stable release opens the update dialog, with upgrade selected by default, a Release link, session ignore and a persistent version skip. The check has an eight-second deadline and is disabled in read-only/replay sessions or with `check_updates = false`. Checks read the public latest-release redirect, and upgrades use the selected tag's official installer URLs without REST API requests or tokens. The small [axoupdater patch](vendor/axoupdater/RSTOP-PATCH.md) accepts this resolved metadata while retaining its receipt and Windows replacement handling. Installation starts only after the user chooses upgrade, pins the displayed tag and requires the current executable's install receipt. CLI checks/updates remain available with `rstop update --check` and `rstop update`. Source builds and manually moved executables cannot overwrite a separately installed copy.
 
 ## Publish
 
@@ -36,8 +36,8 @@ Release installers and the update library are provided by [cargo-dist](https://a
 4. Push the matching version tag, for example:
 
    ```sh
-   git tag v0.1.5
-   git push origin v0.1.5
+   git tag v0.1.6
+   git push origin v0.1.6
    ```
 
 Wait for all six archive jobs and release publication to succeed. Verify the remote branch/tag point to the intended commit. Installation URLs become usable after the release publishes; local fixture tests do not verify this public path. Publishing to crates.io is optional and is not part of the installer release flow.
@@ -60,7 +60,7 @@ dist build --artifacts global
 
 Use the matching target when checking on another host. Archive verification checks the checksum, required license/documentation files, and packaged executable's public commands, recording/replay, exports, and update guards. The checks operate only on owned temporary files. The generated installer can be tested with its `RSTOP_DOWNLOAD_URL` override against a local fixture server; fixture success is not a live release/update-service acceptance claim.
 
-Keep `release.yml` generated: modify [dist-workspace.toml](dist-workspace.toml) and [.github/dist-setup.yml](.github/dist-setup.yml), then run `dist generate` followed by `python3 scripts/distribution.py workflow`. The second command adds the new-tag and installation-success conditions omitted by cargo-dist 0.33.1; CI checks both guards. Do not hand-edit generated workflow contents. Linux releases use glibc to support dynamically loaded GPU drivers; do not add a static musl build without verifying its actual GPU behavior.
+Keep `release.yml` generated: modify [dist-workspace.toml](dist-workspace.toml) and [.github/dist-setup.yml](.github/dist-setup.yml), then run `dist generate` followed by `python3 scripts/distribution.py workflow`. The second command adds the new-tag and installation-success conditions omitted by cargo-dist 0.33.1 and uses the matching v-prefixed tag as the Release title; CI checks these rules. Do not hand-edit generated workflow contents. Linux releases use glibc to support dynamically loaded GPU drivers; do not add a static musl build without verifying its actual GPU behavior.
 
 ## Check a published installer
 

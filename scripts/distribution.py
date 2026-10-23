@@ -29,6 +29,14 @@ def workflow(check=False):
         announce = announce.replace(original, guarded, 1)
     else:
         assert guarded in announce, "Unrecognized cargo-dist announce condition"
+    original_title = 'ANNOUNCEMENT_TITLE: "${{ fromJson(needs.host.outputs.val).announcement_title }}"'
+    tagged_title = 'ANNOUNCEMENT_TITLE: "${{ needs.plan.outputs.tag }}"'
+    if check:
+        assert tagged_title in announce, "Release title must match the v-prefixed tag"
+    elif original_title in announce:
+        announce = announce.replace(original_title, tagged_title, 1)
+    else:
+        assert tagged_title in announce, "Unrecognized cargo-dist release title"
     for job, first_step in (("plan", 'runs-on: "ubuntu-22.04"'),
                             ("custom-checks", "uses: ./.github/workflows/checks.yml")):
         original = f"\n  {job}:\n    {first_step}"

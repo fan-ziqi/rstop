@@ -32,11 +32,13 @@ class WorkflowValidation(unittest.TestCase):
         source = (distribution.ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         creation = "    if: ${{ github.event_name == 'pull_request' || github.event.created }}\n"
         install = " && needs.custom-install-checks.result == 'success'"
+        generated_title = 'ANNOUNCEMENT_TITLE: "${{ fromJson(needs.host.outputs.val).announcement_title }}"'
+        tagged_title = 'ANNOUNCEMENT_TITLE: "${{ needs.plan.outputs.tag }}"'
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
             root = Path(temp)
             path = root / ".github/workflows/release.yml"
             path.parent.mkdir(parents=True)
-            path.write_text(source.replace(creation, "").replace(install, ""), encoding="utf-8")
+            path.write_text(source.replace(creation, "").replace(install, "").replace(tagged_title, generated_title), encoding="utf-8")
             with patch.object(distribution, "ROOT", root):
                 distribution.workflow()
                 distribution.workflow(check=True)
@@ -51,6 +53,9 @@ class WorkflowValidation(unittest.TestCase):
                             distribution.workflow(check=True)
                 path.write_text(expected.replace(install, ""), encoding="utf-8")
                 with self.assertRaisesRegex(AssertionError, "native installation"):
+                    distribution.workflow(check=True)
+                path.write_text(expected.replace(tagged_title, generated_title), encoding="utf-8")
+                with self.assertRaisesRegex(AssertionError, "v-prefixed tag"):
                     distribution.workflow(check=True)
 
 

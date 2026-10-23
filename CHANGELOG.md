@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+## 0.1.6
+
+- Show Apple Silicon GPU memory as unified memory, measured against Metal's working-set limit, and clarify that it shares system RAM.
+- Report unavailable macOS per-process GPU information explicitly.
 - Check for updates automatically only once on launch; keep manual checks available in the menu and CLI.
 - Check public GitHub Release redirects and install the selected tag directly, avoiding REST API rate limits in the update dialog and CLI, including on Windows.
+- Use the matching v-prefixed tag as the GitHub Release title.
 
 ## 0.1.5
 
