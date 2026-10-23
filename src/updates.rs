@@ -1,12 +1,12 @@
 //! Quiet background checks and explicit, receipt-bound updates from GitHub Releases.
 use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
-use std::{io::Read, sync::atomic::Ordering, sync::mpsc, thread, time::Duration};
+use std::{sync::atomic::Ordering, sync::mpsc, thread, time::Duration};
 
-const API: &str = "https://api.github.com/repos/fan-ziqi/rstop/releases/latest";
+const LATEST: &str = "https://github.com/fan-ziqi/rstop/releases/latest";
 const RELEASES: &str = "https://github.com/fan-ziqi/rstop/releases/tag/";
+const DOWNLOADS: &str = "https://github.com/fan-ziqi/rstop/releases/download/";
 const CHECK_INTERVAL: Duration = Duration::from_secs(15 * 60);
-const MAX_RESPONSE: u64 = 512 * 1024;
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Release {
@@ -23,6 +23,13 @@ impl Release {
         self.tag_name.strip_prefix('v').unwrap_or(&self.tag_name)
     }
 
+    fn is_stable(&self) -> bool {
+        !self.draft
+            && !self.prerelease
+            && semver::Version::parse(self.version()).is_ok_and(|version| version.pre.is_empty())
+            && self.html_url == format!("{RELEASES}{}", self.tag_name)
+    }
+
     pub fn newer_than(&self, current: &str) -> bool {
         let Ok(latest) = semver::Version::parse(self.version()) else {
             return false;
@@ -30,11 +37,7 @@ impl Release {
         let Ok(current) = semver::Version::parse(current) else {
             return false;
         };
-        !self.draft
-            && !self.prerelease
-            && latest.pre.is_empty()
-            && latest > current
-            && self.html_url == format!("{RELEASES}{}", self.tag_name)
+        self.is_stable() && latest > current
     }
 }
 
@@ -75,12 +78,7 @@ impl Notice {
         self.selected = 0;
         self.phase = match result {
             Ok(release) => {
-                let eligible = !release.draft
-                    && !release.prerelease
-                    && semver::Version::parse(release.version())
-                        .is_ok_and(|version| version.pre.is_empty())
-                    && release.html_url == format!("{RELEASES}{}", release.tag_name);
-                if !eligible {
+                if !release.is_stable() {
                     Phase::CheckFailed("GitHub returned an invalid stable release.".into())
                 } else {
                     let newer = release.newer_than(env!("CARGO_PKG_VERSION"));
@@ -142,17 +140,77 @@ pub fn latest() -> Result<Release> {
     let client = reqwest::blocking::Client::builder()
         .connect_timeout(Duration::from_secs(3))
         .timeout(Duration::from_secs(8))
+        .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("rstop/", env!("CARGO_PKG_VERSION")))
         .build()?;
-    let mut request = client
-        .get(API)
+    latest_with(&client, LATEST)
+}
+
+fn latest_with(client: &reqwest::blocking::Client, url: &str) -> Result<Release> {
+    // GitHub's documented /releases/latest link resolves to the stable tag.
+    // Read its redirect header without fetching the page or spending REST API quota.
+    let response = client
+        .get(url)
         .header("Cache-Control", "no-cache")
-        .header("Accept", "application/vnd.github+json");
-    if let Ok(token) = std::env::var("RSTOP_GITHUB_TOKEN") {
-        request = request.bearer_auth(token);
-    }
-    let response = request.send()?.error_for_status()?;
-    Ok(serde_json::from_reader(response.take(MAX_RESPONSE))?)
+        .send()
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .context("Could not reach GitHub Releases; retry or rerun the official installer")?;
+    ensure!(
+        matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308),
+        "GitHub did not redirect to the latest rstop release"
+    );
+    let location = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .context("GitHub did not return a release location")?
+        .to_str()?;
+    release_from_url(location)
+}
+
+fn release_from_url(url: &str) -> Result<Release> {
+    let release = Release {
+        tag_name: url.strip_prefix(RELEASES).unwrap_or_default().into(),
+        html_url: url.into(),
+        ..Default::default()
+    };
+    ensure!(
+        release.is_stable(),
+        "GitHub did not return a valid stable rstop release"
+    );
+    Ok(release)
+}
+
+fn resolved_release(release: &Release) -> Result<axoupdater::Release> {
+    ensure!(release.is_stable(), "Invalid update release");
+    Ok(axoupdater::Release {
+        tag_name: release.tag_name.clone(),
+        version: release.version().parse()?,
+        name: release.tag_name.clone(),
+        url: release.html_url.clone(),
+        prerelease: false,
+        assets: ["rstop-installer.sh", "rstop-installer.ps1"]
+            .into_iter()
+            .map(|name| {
+                let url = format!("{DOWNLOADS}{}/{name}", release.tag_name);
+                axoupdater::Asset {
+                    url: url.clone(),
+                    browser_download_url: url,
+                    name: name.into(),
+                }
+            })
+            .collect(),
+    })
+}
+
+/// Install the displayed version using the normal receipt and platform guards.
+pub fn install_release(updater: &mut axoupdater::AxoUpdater, release: &Release) -> Result<String> {
+    ensure!(
+        release.newer_than(env!("CARGO_PKG_VERSION")),
+        "Invalid update release"
+    );
+    updater.configure_release(resolved_release(release)?);
+    let result = updater.run_sync()?.context("No update was installed")?;
+    Ok(result.new_version.to_string())
 }
 
 /// All callers share the same executable/receipt guard and network deadlines.
@@ -181,18 +239,9 @@ pub fn install_background(release: Release, sender: mpsc::Sender<Event>) {
         let sender = sender.clone();
         move || {
             let result = (|| -> Result<String> {
-                ensure!(
-                    release.newer_than(env!("CARGO_PKG_VERSION")),
-                    "Invalid update release"
-                );
                 let mut updater = updater()?;
-                updater
-                    .disable_installer_output()
-                    .configure_version_specifier(axoupdater::UpdateRequest::SpecificTag(
-                        release.tag_name,
-                    ));
-                let result = updater.run_sync()?.context("No update was installed")?;
-                Ok(result.new_version.to_string())
+                updater.disable_installer_output();
+                install_release(&mut updater, &release)
             })()
             .map_err(|error| format!("{error:#}"));
             let _ = sender.send(Event::Installed(result));
@@ -204,65 +253,4 @@ pub fn install_background(release: Release, sender: mpsc::Sender<Event>) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_newer_stable_releases_from_this_repository_are_eligible() {
-        let mut release = Release {
-            tag_name: "v0.1.10".into(),
-            html_url: format!("{RELEASES}v0.1.10"),
-            ..Release::default()
-        };
-        assert!(release.newer_than("0.1.9"));
-        assert!(!release.newer_than("0.2.0"));
-        assert!(!release.newer_than("0.1.10"));
-        release.prerelease = true;
-        assert!(!release.newer_than("0.1.9"));
-        release.prerelease = false;
-        release.html_url = "https://example.com".into();
-        assert!(!release.newer_than("0.1.9"));
-    }
-
-    #[test]
-    fn upgrade_is_the_default_choice() {
-        assert_eq!(Notice::new(Release::default()).selected, 0);
-    }
-
-    #[test]
-    fn manual_checks_report_available_current_invalid_and_failed_results() {
-        let mut notice = Notice::checking();
-        let release = |version: &str| Release {
-            tag_name: format!("v{version}"),
-            html_url: format!("{RELEASES}v{version}"),
-            ..Default::default()
-        };
-        assert!(matches!(notice.phase, Phase::Checking));
-        notice.finish_check(Ok(release("99.0.0")));
-        assert!(matches!(notice.phase, Phase::Available));
-        assert_eq!(notice.release.version(), "99.0.0");
-        for version in [env!("CARGO_PKG_VERSION"), "0.0.1"] {
-            notice.finish_check(Ok(release(version)));
-            assert!(matches!(notice.phase, Phase::UpToDate));
-        }
-        notice.finish_check(Err("Network unavailable".into()));
-        assert!(
-            matches!(&notice.phase, Phase::CheckFailed(error) if error == "Network unavailable")
-        );
-        for invalid in [
-            Release::default(),
-            release("invalid"),
-            Release {
-                html_url: "https://example.com".into(),
-                ..release("99.0.0")
-            },
-            Release {
-                prerelease: true,
-                ..release("99.0.0")
-            },
-        ] {
-            notice.finish_check(Ok(invalid));
-            assert!(matches!(notice.phase, Phase::CheckFailed(_)));
-        }
-    }
-}
+mod tests;

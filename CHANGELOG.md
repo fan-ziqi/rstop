@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Check public GitHub Release redirects and install the selected tag directly, avoiding REST API rate limits in the update dialog and CLI, including on Windows.
+
 ## 0.1.5
 
 - Reduce macOS GPU sampling overhead with direct IOKit queries and an ioreg fallback.

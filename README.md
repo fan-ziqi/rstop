@@ -29,6 +29,8 @@ Restart the shell, then run `rstop`. Prebuilt binaries install to `~/.local/bin`
 
 Open the Esc menu and choose **Check for updates** (or press `u` in the menu) to check in an update window. The window shows progress, available updates, up-to-date results, or errors with a retry option. Manual checks also work when automatic checks are disabled. Use `rstop update --check` to check from the command line, `rstop update` to install an update, or rerun the installer. Updates require an installer-managed copy. [Release archives and checksums](https://github.com/fan-ziqi/rstop/releases) are also available for manual installation.
 
+Checks resolve GitHub's public latest-release link, and upgrades download the selected version's official installer directly; neither needs a GitHub API token. If an older version reports `403 rate limit exceeded`, exit rstop and rerun the installation command above to bypass its API check.
+
 Supported release targets: Linux x86-64/ARM64 with glibc 2.35+, macOS Intel/Apple Silicon, Windows x64/ARM64. NVIDIA monitoring uses the installed driver/NVML; the CUDA Toolkit is not required. Docker, Podman and inspection utilities are optional and are not installed automatically. See [platform limits](COVERAGE.md#known-gaps).
 
 Use a UTF-8 true-color terminal, preferably 140×44 or larger; minimum 60×18.

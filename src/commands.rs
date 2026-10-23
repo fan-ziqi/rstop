@@ -194,16 +194,14 @@ pub fn dispatch(args: &mut Args) -> Result<bool> {
 
 fn update(check: bool) -> Result<()> {
     let mut updater = rstop::updates::updater()?;
-    if check {
-        if updater.is_update_needed_sync()? {
-            println!("An update is available. Run 'rstop update' to install it.");
-        } else {
-            println!("rstop is up to date.");
-        }
-    } else if let Some(result) = updater.run_sync()? {
-        println!("Updated rstop to {}.", result.new_version);
-    } else {
+    let release = rstop::updates::latest()?;
+    if !release.newer_than(env!("CARGO_PKG_VERSION")) {
         println!("rstop is up to date.");
+    } else if check {
+        println!("An update is available. Run 'rstop update' to install it.");
+    } else {
+        let version = rstop::updates::install_release(&mut updater, &release)?;
+        println!("Updated rstop to {version}.");
     }
     Ok(())
 }
