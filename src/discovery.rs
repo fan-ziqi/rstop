@@ -724,6 +724,13 @@ fn discover_services(inventory: &mut Inventory) {
     }
 }
 
+/// launchd reports `-N` when a job was ended by signal N. On-demand agents that
+/// launchd idles out or stops at logout end with SIGKILL/SIGTERM; that is not a failure.
+#[cfg(target_os = "macos")]
+fn launchd_exit_is_failure(status: &str) -> bool {
+    !matches!(status, "0" | "-9" | "-15")
+}
+
 #[cfg(target_os = "macos")]
 fn discover_services(inventory: &mut Inventory) {
     match command("launchctl", &["list"], Duration::from_secs(3)) {
@@ -743,7 +750,7 @@ fn discover_services(inventory: &mut Inventory) {
                         load: "loaded".into(),
                         active: if parts[0] != "-" {
                             "active"
-                        } else if parts[1] != "0" {
+                        } else if launchd_exit_is_failure(parts[1]) {
                             "failed"
                         } else {
                             "inactive"
@@ -872,4 +879,18 @@ pub fn parse_listeners(text: &str, protocol: &str) -> Vec<Listener> {
             })
         })
         .collect()
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod launchd_tests {
+    use super::launchd_exit_is_failure;
+
+    #[test]
+    fn idle_signal_exits_are_not_failures() {
+        assert!(!launchd_exit_is_failure("0"));
+        assert!(!launchd_exit_is_failure("-9"));
+        assert!(!launchd_exit_is_failure("-15"));
+        assert!(launchd_exit_is_failure("127"));
+        assert!(launchd_exit_is_failure("-11"));
+    }
 }
