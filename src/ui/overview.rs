@@ -191,21 +191,10 @@ pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
         )
     };
     if app.config.display.show_battery
-        && area.width >= 100
+        && area.width >= 90
         && let Some(battery) = s.batteries.first()
     {
-        average.push_str(&format!(
-            " · {} {}{} ",
-            battery.name,
-            battery
-                .percent
-                .map(|v| format!("{v:.0}%"))
-                .unwrap_or_else(|| "—".into()),
-            battery
-                .watts
-                .map(|v| format!(" {v:.1} W"))
-                .unwrap_or_default()
-        ));
+        average.push_str(&format!(" · BAT {} ", battery.summary()));
     }
     let b = block(
         format!(" CPU  {:.1}% · {} cores ", s.cpu_percent, s.cores.len()),
