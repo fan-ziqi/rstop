@@ -71,19 +71,19 @@ h2 { font-size: clamp(42px, 4.3vw, 62px); line-height: 1.12; font-weight: 550; l
 .theme-picker button[aria-pressed="true"] { color: #e0f4e7; border-color: #a9d3b780; background: #d0eed907; }
 .theme-picker i { width: 10px; height: 10px; border: 1px solid #ffffff33; border-radius: 50%; background: var(--swatch); }
 .theme-terminal { width: 94%; margin: 0 auto; text-align: left; }
-.install { text-align: center; padding-block: 130px; }
+.install { --install-surface: #0e1522; --install-border: #2a3a50; --install-muted: #8fa0b6; --install-text: #d7e2f1; --install-accent: #7cb8a5; --install-selected: #1d3346; --install-link: color-mix(in srgb, var(--install-accent), #f2f4f3 35%); --accent: var(--install-link); text-align: center; padding-block: 56px; }
 .install h2 span { color: #8e9d93; }
-.install-content { max-width: 840px; margin: 40px auto 0; }
+.install-content { max-width: 840px; margin: 24px auto 0; }
 .os-picker { display: flex; justify-content: center; gap: 8px; }
-.os-picker button { font-size: 12px; padding: 11px 20px; border-radius: 30px; color: #83978b; background: transparent; }
-.os-picker button[aria-pressed="true"] { color: #d1e8da; background: #23392b; }
-.install-command { display: flex; text-align: left; align-items: center; gap: 22px; margin-top: 20px; padding: 22px; background: #111a14; border: 1px solid #3b5242; border-radius: 10px; }
-.install-command > code { flex: 1; min-width: 0; font: 11px/1.9 "DejaVu Sans Mono", monospace; color: #c3d6ca; overflow-wrap: anywhere; user-select: all; }
-.install-command button { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 10px; border-radius: 6px; font-size: 10px; background: #2b4032; color: #d0e5d8; }
-.install-command button:hover { background: #3c5946; }
+.os-picker button { font-size: 12px; padding: 11px 20px; border-radius: 30px; color: color-mix(in srgb, var(--install-muted), #f2f4f3 30%); background: transparent; }
+.os-picker button[aria-pressed="true"] { color: var(--install-text); background: var(--install-selected); }
+.install-command { display: flex; text-align: left; align-items: center; gap: 22px; margin-top: 16px; padding: 22px; background: var(--install-surface); border: 1px solid var(--install-border); border-radius: 10px; }
+.install-command > code { flex: 1; min-width: 0; font: 11px/1.9 "DejaVu Sans Mono", monospace; color: var(--install-text); overflow-wrap: anywhere; user-select: all; }
+.install-command button { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 10px; border-radius: 6px; font-size: 10px; background: var(--install-selected); color: var(--install-text); }
+.install-command button:hover { background: color-mix(in srgb, var(--install-selected), var(--install-accent) 20%); }
 .install-command svg { width: 15px; height: 15px; }
-.copy-status { margin-top: 12px; height: 18px; color: var(--accent); font-size: 11px; }
-.install-links { display: flex; justify-content: center; gap: 30px; margin-top: 25px; color: #92a89a; font-size: 12px; }
+.copy-status { margin-top: 6px; height: 16px; color: var(--accent); font-size: 11px; }
+.install-links { display: flex; justify-content: center; gap: 30px; margin-top: 12px; color: var(--install-link); font-size: 12px; }
 .install-links span { margin-left: 10px; }
 .install-links a:hover { color: var(--accent); }
 footer { padding-bottom: 35px; font-size: 10px; color: #6e8074; }
@@ -135,16 +135,16 @@ footer nav { display: flex; gap: 25px; }
   .theme-picker button { font-size: 10px; gap: 7px; padding: 10px 12px; }
   .theme-picker i { width: 8px; height: 8px; }
   .theme-terminal { width: 100%; }
-  .install { padding-block: 90px; }
+  .install { padding-block: 40px; }
   .install h2 { font-size: 33px; }
-  .install-content { margin-top: 30px; }
+  .install-content { margin-top: 20px; }
   .os-picker button { font-size: 11px; padding: 10px 18px; }
   .install-command { padding: 17px; gap: 14px; }
   .install-command > code { font-size: 9px; }
   .install-command button { padding: 9px; }
   .install-command button span { display: none; }
   .copy-status { font-size: 10px; }
-  .install-links { font-size: 10px; gap: 24px; margin-top: 16px; }
+  .install-links { font-size: 10px; gap: 24px; margin-top: 10px; }
   .install-links span { margin-left: 5px; }
   footer { font-size: 9px; }
   footer > div { align-items: start; flex-direction: column; gap: 18px; }

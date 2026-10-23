@@ -1,43 +1,15 @@
 'use strict';
 document.documentElement.classList.add('js');
-const views = [
-  ['overview', 'Overview'], ['processes', 'Processes'], ['gpu', 'GPU'], ['storage', 'Storage'],
-  ['network', 'Network'], ['system', 'System'], ['containers', 'Containers'], ['services', 'Services']
-];
-let currentView = 0;
-let currentTheme = 'midnight';
-const tabs = [...document.querySelectorAll('[data-view]')];
-function showView(index, focus = false) {
-  currentView = (index + views.length) % views.length;
-  const [key, label] = views[currentView];
-  tabs.forEach((tab, i) => {
-    tab.setAttribute('aria-selected', String(i === currentView));
-    tab.tabIndex = i === currentView ? 0 : -1;
-  });
-  const image = document.querySelector('#demo-image');
-  image.src = `assets/${key}-${currentTheme}.svg`;
-  image.alt = `rstop ${label} with illustrative data`;
-  document.querySelector('#demo-panel').setAttribute('aria-labelledby', `tab-${key}`);
-  document.querySelector('#view-index').textContent = `${String(currentView + 1).padStart(2, '0')} / 08`;
-  if (focus) tabs[currentView].focus({ preventScroll: true });
-}
-tabs.forEach((tab, i) => tab.addEventListener('click', () => showView(i)));
-document.querySelector('#demo').addEventListener('keydown', event => {
-  let next;
-  if (/^[1-8]$/.test(event.key)) next = Number(event.key) - 1;
-  else if (event.key === 'ArrowRight') next = currentView + 1;
-  else if (event.key === 'ArrowLeft') next = currentView - 1;
-  else if (event.key === 'Home') next = 0;
-  else if (event.key === 'End') next = 7;
-  if (next !== undefined) { event.preventDefault(); showView(next, true); }
+const themeButtons = [...document.querySelectorAll('[data-theme]')];
+const resourceDemo = document.querySelector('#resource-demo');
+const install = document.querySelector('#install');
+resourceDemo.addEventListener('native-theme-change', ({detail}) => {
+  install.dataset.theme = detail.theme;
+  Object.entries(detail.colors).forEach(([name,color]) => install.style.setProperty(`--install-${name}`,color));
 });
-document.querySelectorAll('[data-theme]').forEach(button => button.addEventListener('click', () => {
-  currentTheme = button.dataset.theme;
-  document.querySelectorAll('[data-theme]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
-  document.querySelector('#theme-image').src = `assets/overview-${currentTheme}.svg`;
-  document.querySelector('#theme-image').alt = `${currentTheme} theme with illustrative data`;
-  document.querySelector('#theme-command').textContent = `rstop --theme ${currentTheme}`;
-  showView(currentView);
+themeButtons.forEach(button => button.addEventListener('click', () => {
+  resourceDemo.setAttribute('theme', button.dataset.theme);
+  themeButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
 }));
 const commands = {
   unix: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/fan-ziqi/rstop/releases/latest/download/rstop-installer.sh | sh",

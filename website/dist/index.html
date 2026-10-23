@@ -12,15 +12,16 @@
   <meta property="og:url" content="https://fan-ziqi.github.io/rstop/">
   <title>rstop — One terminal. Your whole system.</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/overview-midnight.svg" as="image" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
-  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="styles.css?v=theme-install">
+  <link rel="stylesheet" href="native-demo.css">
+  <script src="native-demo.js?v=theme-install" defer></script>
+  <script src="app.js?v=theme-install" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="wrap site-header">
     <a class="wordmark" href="#" aria-label="rstop home">rstop<span>_</span></a>
-    <nav aria-label="Main navigation"><a href="#views">Explore</a><a href="#themes">Themes</a></nav>
+    <nav aria-label="Main navigation"><a href="#demo">Try it</a><a href="https://github.com/fan-ziqi/rstop" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav>
   </header>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
@@ -34,54 +35,26 @@
         <p class="platforms">Linux <span>·</span> macOS <span>·</span> Windows</p>
       </div>
       <div class="hero-product">
-        <div class="terminal">
+        <div class="terminal" id="demo">
           <div class="titlebar"><span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span><span>rstop</span><span class="demo-label">DEMO</span></div>
-          <img src="assets/overview-midnight.svg" width="1312" height="824" alt="Native rstop overview with illustrative data" fetchpriority="high">
+          <rstop-native id="resource-demo" view="overview" aria-label="rstop native overview with demo data"></rstop-native>
         </div>
-      </div>
-    </section>
-
-    <section class="views section wrap" id="views" aria-labelledby="views-title">
-      <h2 class="reveal" id="views-title">Everything, in view.</h2>
-      <div class="demo-shell reveal" id="demo" tabindex="0" aria-label="Interactive rstop demo. Use keys 1 through 8 to switch views.">
-        <div class="view-tabs" role="tablist" aria-label="Resource views">
-          <button role="tab" aria-selected="true" aria-controls="demo-panel" id="tab-overview" data-view="overview"><span>1</span> Overview</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-processes" data-view="processes"><span>2</span> Processes</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-gpu" data-view="gpu"><span>3</span> GPU</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-storage" data-view="storage"><span>4</span> Storage</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-network" data-view="network"><span>5</span> Network</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-system" data-view="system"><span>6</span> System</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-containers" data-view="containers"><span>7</span> Containers</button>
-          <button role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" id="tab-services" data-view="services"><span>8</span> Services</button>
-        </div>
-        <div class="demo-screen" role="tabpanel" id="demo-panel" aria-labelledby="tab-overview"><img id="demo-image" src="assets/overview-midnight.svg" width="1312" height="824" loading="lazy" alt="rstop Overview with illustrative data"></div>
-      </div>
-      <div class="screen-caption"><span id="view-index">01 / 08</span><span>Native UI · Demo data</span></div>
-    </section>
-
-    <section class="themes section" id="themes" aria-labelledby="themes-title">
-      <div class="wrap">
-        <h2 class="reveal" id="themes-title">Make it yours.</h2>
-        <div class="theme-picker reveal" role="group" aria-label="Terminal theme">
-          <button data-theme="midnight" aria-pressed="true"><i style="--swatch:#7fc3ae"></i>Midnight</button>
-          <button data-theme="nord" aria-pressed="false"><i style="--swatch:#87aabe"></i>Nord</button>
-          <button data-theme="ember" aria-pressed="false"><i style="--swatch:#db9970"></i>Ember</button>
-          <button data-theme="black" aria-pressed="false"><i style="--swatch:#33383d"></i>Black</button>
-          <button data-theme="white" aria-pressed="false"><i style="--swatch:#e6e7e2"></i>White</button>
-          <button data-theme="graphite" aria-pressed="false"><i style="--swatch:#8b8c94"></i>Graphite</button>
-          <button data-theme="ocean" aria-pressed="false"><i style="--swatch:#459fc5"></i>Ocean</button>
-          <button data-theme="forest" aria-pressed="false"><i style="--swatch:#79a36c"></i>Forest</button>
-          <button data-theme="sand" aria-pressed="false"><i style="--swatch:#cbb995"></i>Sand</button>
-        </div>
-        <div class="terminal theme-terminal reveal">
-          <div class="titlebar"><span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span><span id="theme-command">rstop --theme midnight</span><span class="demo-label">DEMO</span></div>
-          <img id="theme-image" src="assets/overview-midnight.svg" width="1312" height="824" loading="lazy" alt="Midnight theme with illustrative data">
+        <div class="theme-picker demo-theme-picker" role="group" aria-label="Terminal theme">
+          <button data-theme="midnight" aria-pressed="true"><i style="--swatch:#7cb8a5" aria-hidden="true"></i>Midnight</button>
+          <button data-theme="nord" aria-pressed="false"><i style="--swatch:#87aabe" aria-hidden="true"></i>Nord</button>
+          <button data-theme="ember" aria-pressed="false"><i style="--swatch:#db9970" aria-hidden="true"></i>Ember</button>
+          <button data-theme="black" aria-pressed="false"><i style="--swatch:#33383d" aria-hidden="true"></i>Black</button>
+          <button data-theme="white" aria-pressed="false"><i style="--swatch:#e6e7e2" aria-hidden="true"></i>White</button>
+          <button data-theme="graphite" aria-pressed="false"><i style="--swatch:#8b8c94" aria-hidden="true"></i>Graphite</button>
+          <button data-theme="ocean" aria-pressed="false"><i style="--swatch:#459fc5" aria-hidden="true"></i>Ocean</button>
+          <button data-theme="forest" aria-pressed="false"><i style="--swatch:#79a36c" aria-hidden="true"></i>Forest</button>
+          <button data-theme="sand" aria-pressed="false"><i style="--swatch:#cbb995" aria-hidden="true"></i>Sand</button>
         </div>
       </div>
     </section>
 
     <section class="install section wrap" id="install" aria-labelledby="install-title">
-      <h2 class="reveal" id="install-title">Your terminal.<br><span>A clearer perspective.</span></h2>
+      <h2 class="reveal" id="install-title">One-click install</h2>
       <div class="install-content reveal">
         <div class="os-picker" role="group" aria-label="Installation platform"><button data-os="unix" aria-pressed="true">Linux / macOS</button><button data-os="windows" aria-pressed="false">Windows</button></div>
         <div class="install-command"><code id="install-command">curl --proto '=https' --tlsv1.2 -LsSf https://github.com/fan-ziqi/rstop/releases/latest/download/rstop-installer.sh | sh</code><button id="copy-command" aria-label="Copy installation command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy</span></button></div>
