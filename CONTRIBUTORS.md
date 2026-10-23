@@ -11,7 +11,7 @@ Guidelines for modifications:
 
 ## Developers
 
-* Ziqi Fan
+* [Ziqi Fan](https://github.com/fan-ziqi)
 
 ## Contributors
 
