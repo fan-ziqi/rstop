@@ -286,6 +286,53 @@ pub struct Battery {
     pub watts: Option<f32>,
 }
 
+impl Battery {
+    /// Plain-language charge state; the raw status is a backend enum name.
+    pub fn state_label(&self) -> &'static str {
+        match self.status.as_str() {
+            "Charging" => "charging",
+            "Discharging" => "on battery",
+            "Full" => "full",
+            "Empty" => "empty",
+            _ => "",
+        }
+    }
+
+    /// Time to full while charging or to empty while discharging, when the backend knows it.
+    pub fn remaining(&self) -> Option<String> {
+        let key = match self.status.as_str() {
+            "Charging" => "time_to_full_seconds",
+            "Discharging" => "time_to_empty_seconds",
+            _ => return None,
+        };
+        let seconds = self.extra.get(key)?.as_f64().filter(|v| *v > 0.)? as u64;
+        Some(format!("{}h{:02}m", seconds / 3600, seconds % 3600 / 60))
+    }
+
+    /// For example `87% · charging · 0h40m to full · 31.2 W`.
+    pub fn summary(&self) -> String {
+        let mut parts = vec![
+            self.percent
+                .map_or_else(|| "—".to_string(), |v| format!("{v:.0}%")),
+        ];
+        if !self.state_label().is_empty() {
+            parts.push(self.state_label().to_string());
+        }
+        if let Some(time) = self.remaining() {
+            let suffix = if self.status == "Charging" {
+                "to full"
+            } else {
+                "left"
+            };
+            parts.push(format!("{time} {suffix}"));
+        }
+        if let Some(watts) = self.watts.filter(|w| w.abs() >= 0.05) {
+            parts.push(format!("{:.1} W", watts.abs()));
+        }
+        parts.join(" · ")
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Pressure {
@@ -381,4 +428,42 @@ pub fn duration(seconds: u64) -> String {
 
 pub fn is_loopback(name: &str) -> bool {
     name == "lo" || name == "lo0" || name.to_lowercase().contains("loopback")
+}
+
+#[cfg(test)]
+mod battery_tests {
+    use super::Battery;
+
+    fn battery(status: &str, percent: f32, watts: f32, key: Option<(&str, u64)>) -> Battery {
+        let mut battery = Battery {
+            status: status.into(),
+            percent: Some(percent),
+            watts: Some(watts),
+            ..Default::default()
+        };
+        if let Some((key, value)) = key {
+            battery.extra.insert(key.into(), serde_json::json!(value));
+        }
+        battery
+    }
+
+    #[test]
+    fn summary_reads_in_plain_language() {
+        assert_eq!(battery("Full", 100., 0., None).summary(), "100% · full");
+        assert_eq!(
+            battery("Charging", 87., 31.24, Some(("time_to_full_seconds", 2460))).summary(),
+            "87% · charging · 0h41m to full · 31.2 W"
+        );
+        assert_eq!(
+            battery(
+                "Discharging",
+                42.,
+                -9.0,
+                Some(("time_to_empty_seconds", 11400))
+            )
+            .summary(),
+            "42% · on battery · 3h10m left · 9.0 W"
+        );
+        assert_eq!(Battery::default().summary(), "—");
+    }
 }

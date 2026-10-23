@@ -236,11 +236,7 @@ pub(super) fn system_view(frame: &mut Frame, area: Rect, app: &App, p: Palette) 
     if let Some(battery) = s.batteries.first() {
         stats.push(Stat {
             label: "BATTERY",
-            value: format!(
-                "{} · {}",
-                optional(battery.percent.map(|v| format!("{v:.0}")), "%"),
-                battery.status
-            ),
+            value: battery.summary(),
             color: if battery.percent.is_some_and(|v| v < 20.) {
                 p.amber
             } else {
