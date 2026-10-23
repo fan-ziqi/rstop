@@ -146,7 +146,7 @@ pub fn findings(app: &App) -> Vec<Finding> {
     }
     for n in &s.networks {
         if n.errors > 0 || n.drops.is_some_and(|d| d > 0) {
-            out.push(finding("network","INFO",format!("{} has recorded errors/drops",n.name),format!("Lifetime errors {}; drops {:?}",n.errors,n.drops),"These are cumulative counters; they may predate the current incident.","Compare successive samples. Check link/cable/Wi-Fi quality only if counters keep increasing; N checks a website or service."));
+            out.push(finding("network","INFO",format!("{} has recorded errors/drops",n.name),format!("Lifetime errors {}; drops {}",n.errors,n.drops.map_or_else(||"not reported".to_string(),|d|d.to_string())),"These are cumulative counters; they may predate the current incident.","Compare successive samples. Check link/cable/Wi-Fi quality only if counters keep increasing; N checks a website or service."));
         }
     }
     let pending = s
