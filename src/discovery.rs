@@ -731,8 +731,33 @@ fn launchd_exit_is_failure(status: &str) -> bool {
     !matches!(status, "0" | "-9" | "-15")
 }
 
+/// launchd job plists live under these directories, named after the job label.
+#[cfg(target_os = "macos")]
+fn launchd_plist(label: &str, dirs: &[std::path::PathBuf]) -> Option<String> {
+    if label.contains('/') || label.starts_with('.') {
+        return None;
+    }
+    dirs.iter()
+        .map(|dir| dir.join(format!("{label}.plist")))
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
 #[cfg(target_os = "macos")]
 fn discover_services(inventory: &mut Inventory) {
+    let mut plist_dirs = vec![];
+    if let Some(home) = std::env::var_os("HOME") {
+        plist_dirs.push(std::path::PathBuf::from(home).join("Library/LaunchAgents"));
+    }
+    plist_dirs.extend(
+        [
+            "/Library/LaunchAgents",
+            "/Library/LaunchDaemons",
+            "/System/Library/LaunchAgents",
+            "/System/Library/LaunchDaemons",
+        ]
+        .map(std::path::PathBuf::from),
+    );
     match command("launchctl", &["list"], Duration::from_secs(3)) {
         Ok(output) => {
             inventory.service_managers.push("launchd/user".into());
@@ -759,6 +784,14 @@ fn discover_services(inventory: &mut Inventory) {
                         sub: format!("PID {} / exit {}", parts[0], parts[1]),
                         description: String::new(),
                         pid: parts[0].parse().ok(),
+                        extra: launchd_plist(parts[2], &plist_dirs)
+                            .map(|path| {
+                                std::collections::BTreeMap::from([(
+                                    "plist".to_string(),
+                                    serde_json::Value::String(path),
+                                )])
+                            })
+                            .unwrap_or_default(),
                         ..Service::default()
                     })
                 })

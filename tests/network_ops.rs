@@ -265,3 +265,12 @@ fn live_tcp_payload_rates_follow_an_owned_transfer_when_ss_is_available() {
     assert_eq!(b.received.unwrap() - a.received.unwrap(), 8192);
     assert!(b.rx_per_sec.is_some_and(|v| v > 0.));
 }
+#[test]
+fn lsof_rows_keep_queue_sizes_and_drop_duplicate_descriptors() {
+    let rows = rstop::connections::parse_lsof(
+        "p7\ncapp\nf3\ntIPv4\nPTCP\nn1.1.1.1:1->2.2.2.2:2\nTST=ESTABLISHED\nTQR=5\nTQS=9\nf4\ntIPv4\nPTCP\nn1.1.1.1:1->2.2.2.2:2\nTST=ESTABLISHED\nTQR=5\nTQS=9\n",
+    );
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].receive_queue, Some(5));
+    assert_eq!(rows[0].send_queue, Some(9));
+}

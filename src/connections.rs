@@ -483,14 +483,23 @@ pub fn parse_lsof(text: &str) -> Vec<Connection> {
                     ..Default::default()
                 });
             }
-            "T" if value.starts_with("ST=") => {
+            "T" => {
                 if let Some(row) = result.last_mut() {
-                    row.state = value[3..].into();
+                    if let Some(state) = value.strip_prefix("ST=") {
+                        row.state = state.into();
+                    } else if let Some(bytes) = value.strip_prefix("QR=") {
+                        row.receive_queue = bytes.parse().ok();
+                    } else if let Some(bytes) = value.strip_prefix("QS=") {
+                        row.send_queue = bytes.parse().ok();
+                    }
                 }
             }
             _ => {}
         }
     }
+    // A socket duplicated across several descriptors of one process is listed once per fd.
+    let mut seen = std::collections::HashSet::new();
+    result.retain(|row| seen.insert(row.id.clone()));
     result
 }
 
