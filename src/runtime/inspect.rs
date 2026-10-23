@@ -104,7 +104,10 @@ pub(super) fn load_resource_detail(app: &mut App, sender: mpsc::Sender<(u64, Str
             #[cfg(target_os = "linux")]
             { Some(("systemctl".into(), vec![format!("--{}", service.scope), "show".into(), "--no-pager".into(), "--property=Id,Description,MainPID,ControlGroup,ActiveEnterTimestamp,ExecMainStatus,NRestarts,MemoryCurrent,TasksCurrent,CPUUsageNSec,FragmentPath,UnitFileState,Requires,Wants,After,Restart".into(), "--".into(), service.name.clone()], false)) }
             #[cfg(target_os = "macos")]
-            { Some(("launchctl".into(), vec!["print".into(), format!("gui/{}/{}", unsafe { libc::geteuid() }, service.name)], false)) }
+            {
+                let domain = if service.scope == "system" { "system".to_string() } else { format!("gui/{}", unsafe { libc::geteuid() }) };
+                Some(("launchctl".into(), vec!["print".into(), format!("{domain}/{}", service.name)], false))
+            }
             #[cfg(target_os = "windows")]
             { Some(("sc.exe".into(), vec!["queryex".into(), service.name.clone()], false)) }
             #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]

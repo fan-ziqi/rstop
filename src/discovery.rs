@@ -728,7 +728,7 @@ fn discover_services(inventory: &mut Inventory) {
 /// launchd idles out or stops at logout end with SIGKILL/SIGTERM; that is not a failure.
 #[cfg(any(target_os = "macos", test))]
 fn launchd_exit_is_failure(status: &str) -> bool {
-    !matches!(status, "0" | "-9" | "-15")
+    !matches!(status, "0" | "-" | "-9" | "-15")
 }
 
 /// launchd job plists live under these directories, named after the job label.
@@ -749,6 +749,80 @@ fn launchd_plist(label: &str, scope: &str, dirs: &[std::path::PathBuf]) -> Optio
         .map(|path| path.to_string_lossy().into_owned())
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn launchd_service(
+    name: &str,
+    pid: Option<u32>,
+    status: &str,
+    scope: &str,
+    plist_dirs: &[std::path::PathBuf],
+) -> Service {
+    let state = if pid.is_some() {
+        "active"
+    } else if launchd_exit_is_failure(status) {
+        "failed"
+    } else {
+        "inactive"
+    };
+    Service {
+        name: name.into(),
+        scope: scope.into(),
+        load: "loaded".into(),
+        active: state.into(),
+        sub: format!(
+            "PID {} / exit {status}",
+            pid.map_or("-".to_string(), |pid| pid.to_string())
+        ),
+        pid,
+        extra: launchd_plist(name, scope, plist_dirs)
+            .map(|path| {
+                std::collections::BTreeMap::from([(
+                    "plist".to_string(),
+                    serde_json::Value::String(path),
+                )])
+            })
+            .unwrap_or_default(),
+        ..Service::default()
+    }
+}
+
+/// Parses the `services = { pid status label }` block of `launchctl print system`.
+/// A pid of 0 means not running; the status is an exit code, `-` or a `(flag)` marker.
+#[cfg(any(target_os = "macos", test))]
+fn parse_launchd_system(text: &str, plist_dirs: &[std::path::PathBuf]) -> Vec<Service> {
+    let mut services = vec![];
+    let mut inside = false;
+    for line in text.lines() {
+        if !inside {
+            inside = line == "\tservices = {";
+            continue;
+        }
+        if line.starts_with("\t}") {
+            break;
+        }
+        let parts: Vec<_> = line.split_whitespace().collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let Ok(pid) = parts[0].parse::<u32>() else {
+            continue;
+        };
+        let status = if parts[1].starts_with('(') {
+            "-"
+        } else {
+            parts[1]
+        };
+        services.push(launchd_service(
+            parts[2],
+            (pid > 0).then_some(pid),
+            status,
+            "system",
+            plist_dirs,
+        ));
+    }
+    services
+}
+
 #[cfg(target_os = "macos")]
 fn discover_services(inventory: &mut Inventory) {
     let mut plist_dirs = vec![];
@@ -764,46 +838,48 @@ fn discover_services(inventory: &mut Inventory) {
         ]
         .map(std::path::PathBuf::from),
     );
-    match command("launchctl", &["list"], Duration::from_secs(3)) {
+    // The two domains are independent launchctl calls, so run them side by side.
+    let (user, system) = std::thread::scope(|scope| {
+        let system =
+            scope.spawn(|| command("launchctl", &["print", "system"], Duration::from_secs(4)));
+        let user = command("launchctl", &["list"], Duration::from_secs(3));
+        (
+            user,
+            system
+                .join()
+                .unwrap_or_else(|_| Err(anyhow::anyhow!("system query panicked"))),
+        )
+    });
+    match user {
         Ok(output) => {
             inventory.service_managers.push("launchd/user".into());
-            inventory.services = output
-                .lines()
-                .skip(1)
-                .filter_map(|line| {
+            inventory
+                .services
+                .extend(output.lines().skip(1).filter_map(|line| {
                     let parts: Vec<_> = line.split_whitespace().collect();
                     if parts.len() < 3 {
                         return None;
                     }
-                    Some(Service {
-                        name: parts[2].into(),
-                        scope: "user".into(),
-                        load: "loaded".into(),
-                        active: if parts[0] != "-" {
-                            "active"
-                        } else if launchd_exit_is_failure(parts[1]) {
-                            "failed"
-                        } else {
-                            "inactive"
-                        }
-                        .into(),
-                        sub: format!("PID {} / exit {}", parts[0], parts[1]),
-                        description: String::new(),
-                        pid: parts[0].parse().ok(),
-                        extra: launchd_plist(parts[2], "user", &plist_dirs)
-                            .map(|path| {
-                                std::collections::BTreeMap::from([(
-                                    "plist".to_string(),
-                                    serde_json::Value::String(path),
-                                )])
-                            })
-                            .unwrap_or_default(),
-                        ..Service::default()
-                    })
-                })
-                .collect();
+                    Some(launchd_service(
+                        parts[2],
+                        parts[0].parse().ok(),
+                        parts[1],
+                        "user",
+                        &plist_dirs,
+                    ))
+                }));
         }
         Err(error) => inventory.notes.push(format!("launchd: {error}")),
+    }
+    match system {
+        Ok(output) => {
+            let services = parse_launchd_system(&output, &plist_dirs);
+            if !services.is_empty() {
+                inventory.service_managers.push("launchd/system".into());
+                inventory.services.extend(services);
+            }
+        }
+        Err(error) => inventory.notes.push(format!("launchd/system: {error}")),
     }
 }
 
@@ -934,6 +1010,18 @@ mod launchd_tests {
     }
 
     #[test]
+    fn system_domain_listing_is_parsed() {
+        let text = "system = {\n\tservices = {\n\t\t       0      - \tcom.apple.idle\n\t\t     390      - \tcom.apple.runningboardd\n\t\t       0   (pe) \tcom.apple.pending\n\t\t       0    127 \tcom.example.broken\n\t}\n\tendpoints = {\n\t\t       1      - \tother\n\t}\n}\n";
+        let services = super::parse_launchd_system(text, &[]);
+        assert_eq!(services.len(), 4);
+        assert_eq!(services[0].active, "inactive");
+        assert_eq!(services[1].pid, Some(390));
+        assert_eq!(services[1].scope, "system");
+        assert_eq!(services[2].active, "inactive");
+        assert_eq!(services[3].active, "failed");
+    }
+
+    #[test]
     fn plist_lookup_keeps_user_and_system_scopes_separate() {
         let root = std::env::temp_dir().join(format!("rstop-launchd-{}", std::process::id()));
         let user = root.join("LaunchAgents");
@@ -954,6 +1042,8 @@ mod launchd_tests {
             super::launchd_plist(label, "user", &dirs).as_deref(),
             user_plist.to_str()
         );
+        let service = super::launchd_service(label, None, "0", "system", &dirs);
+        assert_eq!(service.extra["plist"].as_str(), system_plist.to_str());
         std::fs::remove_file(&user_plist).unwrap();
         assert!(super::launchd_plist(label, "user", &dirs).is_none());
         assert!(super::launchd_plist(label, "unknown", &dirs).is_none());

@@ -37,6 +37,9 @@ regex = "1"
 semver = "1"
 reqwest = { version = "0.13", default-features = false, features = ["blocking"] }
 
+[dev-dependencies]
+socket2 = "0.6"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
