@@ -43,6 +43,7 @@ pub fn initial_snapshot() -> Snapshot {
     }
 }
 
+const STORAGE_REFRESH: std::time::Duration = std::time::Duration::from_secs(10);
 const SENSOR_REFRESH: std::time::Duration = std::time::Duration::from_secs(2);
 
 pub struct Collector {
@@ -51,6 +52,7 @@ pub struct Collector {
     disks: Disks,
     components: Components,
     components_at: Instant,
+    disks_at: Instant,
     users: Users,
     gpu: GpuCollector,
     previous: Instant,
@@ -96,6 +98,7 @@ impl Collector {
             disks: Disks::new_with_refreshed_list(),
             components: Components::new_with_refreshed_list(),
             components_at: now,
+            disks_at: now,
             users: Users::new_with_refreshed_list(),
             gpu: GpuCollector::new(gpu),
             previous: now,
@@ -149,13 +152,17 @@ impl Collector {
             self.components.refresh(true);
             self.components_at = began;
         }
-        if self.cycles.is_multiple_of(5) {
+        // Capacity and mount changes cost ~16 ms per refresh on macOS and move slowly.
+        if began.duration_since(self.disks_at) >= STORAGE_REFRESH {
             self.disks.refresh_specifics(
                 true,
                 sysinfo::DiskRefreshKind::nothing()
                     .with_storage()
                     .with_kind(),
             );
+            self.disks_at = began;
+        }
+        if self.cycles.is_multiple_of(5) {
             self.system.refresh_cpu_frequency();
         }
         #[cfg(not(target_os = "linux"))]

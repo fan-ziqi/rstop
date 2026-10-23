@@ -118,9 +118,26 @@ fn base(value: &str) -> String {
         .into()
 }
 fn family(name: &str, source: &str) -> Vec<Tag> {
-    let mut tags = vec![];
-    catalog::recognize(name, source, &mut tags);
-    tags
+    use std::{cell::RefCell, collections::HashMap};
+    type Key = (String, String);
+    thread_local! {
+        // Recognition is a pure function of (name, source) and is repeated for every process,
+        // service and container on every sample.
+        static MEMO: RefCell<HashMap<Key, Vec<Tag>>> = RefCell::new(HashMap::new());
+    }
+    MEMO.with(|memo| {
+        let mut memo = memo.borrow_mut();
+        if let Some(tags) = memo.get(&(name.to_string(), source.to_string())) {
+            return tags.clone();
+        }
+        let mut tags = vec![];
+        catalog::recognize(name, source, &mut tags);
+        if memo.len() >= 16_384 {
+            memo.clear();
+        }
+        memo.insert((name.to_string(), source.to_string()), tags.clone());
+        tags
+    })
 }
 
 /// Command strings are joined argv and can be ambiguous. Only explicit entry points are used.
