@@ -375,7 +375,37 @@ pub struct Gpu {
     pub performance_state: Option<String>,
     pub processes: Vec<GpuProcess>,
     pub process_status: String,
+    /// CPU and GPU share one physical memory pool (Apple Silicon), so `memory_used` is part of
+    /// system RAM usage rather than a separate resource.
+    pub unified_memory: bool,
+    /// Largest amount the GPU may keep resident (Metal's recommended working set) when the
+    /// device shares system memory; `memory_total` then reports the whole pool.
+    pub memory_limit: Option<u64>,
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+impl Gpu {
+    /// Short label for the memory meter: dedicated video memory or the shared pool.
+    pub fn memory_label(&self) -> &'static str {
+        if self.unified_memory { "UMEM" } else { "VRAM" }
+    }
+
+    /// What `memory_used` is measured against: the GPU working-set limit on unified memory,
+    /// otherwise the device's own memory size.
+    pub fn memory_capacity(&self) -> Option<u64> {
+        if self.unified_memory {
+            self.memory_limit.or(self.memory_total)
+        } else {
+            self.memory_total
+        }
+        .filter(|capacity| *capacity > 0)
+    }
+
+    pub fn memory_percent(&self) -> Option<f64> {
+        self.memory_used
+            .zip(self.memory_capacity())
+            .map(|(used, capacity)| percent(used, capacity))
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -465,5 +495,55 @@ mod battery_tests {
             "42% · on battery · 3h10m left · 9.0 W"
         );
         assert_eq!(Battery::default().summary(), "—");
+    }
+}
+
+#[cfg(test)]
+mod unified_memory_tests {
+    use super::Gpu;
+
+    const GIB: u64 = 1 << 30;
+
+    #[test]
+    fn discrete_gpu_is_measured_against_its_own_memory() {
+        let gpu = Gpu {
+            memory_used: Some(6 * GIB),
+            memory_total: Some(24 * GIB),
+            ..Default::default()
+        };
+        assert_eq!(gpu.memory_label(), "VRAM");
+        assert_eq!(gpu.memory_capacity(), Some(24 * GIB));
+        assert_eq!(gpu.memory_percent(), Some(25.0));
+    }
+
+    #[test]
+    fn unified_gpu_is_measured_against_its_working_set_limit_not_all_of_ram() {
+        let gpu = Gpu {
+            unified_memory: true,
+            memory_used: Some(10 * GIB),
+            memory_total: Some(32 * GIB),
+            memory_limit: Some(20 * GIB),
+            ..Default::default()
+        };
+        assert_eq!(gpu.memory_label(), "UMEM");
+        assert_eq!(gpu.memory_capacity(), Some(20 * GIB));
+        assert_eq!(gpu.memory_percent(), Some(50.0));
+        // Without a reported limit the whole shared pool is the best available bound.
+        let unknown = Gpu {
+            memory_limit: None,
+            ..gpu
+        };
+        assert_eq!(unknown.memory_capacity(), Some(32 * GIB));
+    }
+
+    #[test]
+    fn missing_or_zero_capacity_gives_no_percentage() {
+        assert_eq!(Gpu::default().memory_percent(), None);
+        let gpu = Gpu {
+            memory_used: Some(1),
+            memory_total: Some(0),
+            ..Default::default()
+        };
+        assert_eq!(gpu.memory_percent(), None);
     }
 }

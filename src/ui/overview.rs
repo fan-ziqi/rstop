@@ -562,12 +562,29 @@ fn history_plots(
 
 pub(super) fn memory(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     let m = &app.snapshot.memory;
+    let unified_gpu = app
+        .snapshot
+        .gpus
+        .iter()
+        .find(|gpu| gpu.unified_memory)
+        .and_then(|gpu| gpu.memory_used);
+    let note = unified_gpu.and_then(|used| {
+        let gpu = bytes(used as f64);
+        [
+            format!(" Used includes GPU {gpu} · cache excluded "),
+            format!(" Used includes GPU {gpu} "),
+        ]
+        .into_iter()
+        .find(|note| note.chars().count() + 2 <= area.width as usize)
+    });
     let b = block(" MEMORY ", p, p.purple).title_bottom(Line::styled(
-        if area.width >= 30 {
-            " Excludes reclaimable cache "
-        } else {
-            " Cache excluded "
-        },
+        note.unwrap_or_else(|| {
+            if area.width >= 30 {
+                " Excludes reclaimable cache ".to_string()
+            } else {
+                " Cache excluded ".to_string()
+            }
+        }),
         Style::new().fg(p.muted),
     ));
     let inner = b.inner(area);
@@ -752,18 +769,24 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
     let navigation = gpu_count > 1 && navigation_width <= footer_width && area.height >= 2;
     let metadata_width =
         footer_width.saturating_sub(if navigation { navigation_width } else { 0 }) as usize;
-    let full_footer = if gpu_count > 1 {
-        format!(" {count} proc · {} ·", gpu.backend)
+    // macOS reports no per-process GPU data, so a count of zero would be misleading.
+    let (long_count, short_count) = if gpu.unified_memory {
+        ("per-process n/a".to_string(), "per-proc n/a".to_string())
     } else {
-        format!(" {count} processes · {} ", gpu.backend)
+        (format!("{count} processes"), format!("{count} proc"))
+    };
+    let full_footer = if gpu_count > 1 {
+        format!(" {short_count} · {} ·", gpu.backend)
+    } else {
+        format!(" {long_count} · {} ", gpu.backend)
     };
     let backend_in_footer = Line::raw(&full_footer).width() <= metadata_width;
     let metadata = if backend_in_footer {
         full_footer
     } else if gpu_count > 1 {
-        format!(" {count} proc ·")
+        format!(" {short_count} ·")
     } else {
-        format!(" {count} processes ")
+        format!(" {long_count} ")
     };
     let metadata_in_footer = !navigation || Line::raw(&metadata).width() <= metadata_width;
     let metadata = if metadata_in_footer {
@@ -801,10 +824,7 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
     let inner = b.inner(area);
     frame.render_widget(b, area);
     let width = inner.width.saturating_sub(13) as usize;
-    let vram = gpu
-        .memory_used
-        .zip(gpu.memory_total)
-        .map(|(used, total)| percent(used, total));
+    let vram = gpu.memory_percent();
     let mut lines = vec![
         Line::styled(
             format!(
@@ -820,14 +840,22 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
         },
         Line::raw(""),
         if let Some(util) = vram {
-            meter(" VRAM", util, width.saturating_sub(1), p.purple, p)
+            meter(
+                &format!(" {}", gpu.memory_label()),
+                util,
+                width.saturating_sub(1),
+                p.purple,
+                p,
+            )
         } else {
-            Line::styled(" VRAM  —", Style::new().fg(p.muted))
+            Line::styled(
+                format!(" {}  —", gpu.memory_label()),
+                Style::new().fg(p.muted),
+            )
         },
         Line::from(format!(
-            " {} / {}",
-            optional_bytes(gpu.memory_used),
-            optional_bytes(gpu.memory_total)
+            " {}",
+            super::gpu::gpu_memory_text(gpu, inner.width as usize)
         )),
         Line::from(format!(
             " {} · {} · fan {}",
@@ -867,7 +895,7 @@ pub(super) fn gpu_card(frame: &mut Frame, area: Rect, app: &mut App, p: Palette)
             p,
             &[
                 ("GPU", &history.utilization, p.blue),
-                ("VRAM", &history.vram, p.purple),
+                (gpu.memory_label(), &history.vram, p.purple),
             ],
             Some(100.),
             "%",

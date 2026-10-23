@@ -80,6 +80,25 @@ pub(super) fn process_table(frame: &mut Frame, area: Rect, app: &mut App, p: Pal
         program_groups(frame, area, app, p);
         return;
     }
+    // macOS exposes GPU load and memory for the whole device only, so the GPU page's process
+    // table can never fill; say so rather than showing an unexplained empty list.
+    if app.view == View::Gpu
+        && app.snapshot.gpus.iter().any(|gpu| gpu.unified_memory)
+        && app.process_rows().is_empty()
+        && app.filter.is_empty()
+    {
+        let b = block(" PROCESSES ", p, p.mint);
+        let inner = b.inner(area);
+        frame.render_widget(b, area);
+        super::visuals::empty(
+            frame,
+            inner,
+            "No per-process GPU data",
+            "macOS reports GPU load and memory for the whole device only. Press 2 for CPU and memory per process.",
+            p,
+        );
+        return;
+    }
     if app.selection_open && app.selected_process().is_some() && area.height >= 9 {
         let (list, detail) = super::selection::split(area);
         // Finalize visible columns before measuring the sidebar's TABLE FIELDS.

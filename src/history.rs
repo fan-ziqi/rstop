@@ -229,14 +229,7 @@ impl History {
                 &mut h.utilization,
                 gpu.utilization.map(|v| v as f64).unwrap_or(f64::NAN),
             );
-            push(
-                &mut h.vram,
-                gpu.memory_used
-                    .zip(gpu.memory_total)
-                    .filter(|(_, total)| *total > 0)
-                    .map(|(used, total)| percent(used, total))
-                    .unwrap_or(f64::NAN),
-            );
+            push(&mut h.vram, gpu.memory_percent().unwrap_or(f64::NAN));
             push(
                 &mut h.memory_busy,
                 gpu.memory_utilization.map(|v| v as f64).unwrap_or(f64::NAN),
