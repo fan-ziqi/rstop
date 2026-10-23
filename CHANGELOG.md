@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Fix macOS launchd service status, plist discovery and system-domain service inspection.
+- Correct macOS APFS storage entries, GPU names and platform probes.
+- Improve macOS sampling performance and connection ownership, queue sizes and socket identity.
+- Animate loading indicators and limit macOS service logs while preserving native log ordering on other platforms.
+
 ## 0.1.3
 
 - Faster resource loading, background process sampling and clearer detail-pane controls.
