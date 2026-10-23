@@ -24,10 +24,7 @@ impl Sources {
     }
     pub fn activate(&self, view: View, process_table: bool) -> bool {
         let mut bits = match view {
-            View::Processes => PROCESSES | GPU_PROCESSES,
-            // macOS and Windows GPUs come from the extras probes (IOKit, DXGI/WDDM), not NVML.
-            View::Gpu if cfg!(target_os = "linux") => PROCESSES | GPU_PROCESSES,
-            View::Gpu => PROCESSES | GPU_PROCESSES | EXTRAS,
+            View::Processes | View::Gpu => PROCESSES | GPU_PROCESSES,
             View::Containers => CONTAINERS | PROCESSES | GPU_PROCESSES,
             View::Services => SERVICES | PROCESSES | GPU_PROCESSES,
             View::Network => CONNECTIONS | PROCESSES | EXTRAS,
@@ -71,9 +68,6 @@ mod tests {
         assert!(sources.needs().processes);
         assert!(!sources.needs().services);
         assert!(!sources.needs().connections);
-        assert!(!sources.needs().extras);
-        sources.activate(View::Gpu, false);
-        assert_eq!(sources.needs().extras, !cfg!(target_os = "linux"));
         sources.activate(View::Services, false);
         sources.activate(View::Network, false);
         assert!(
