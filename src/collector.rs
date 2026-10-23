@@ -43,11 +43,14 @@ pub fn initial_snapshot() -> Snapshot {
     }
 }
 
+const SENSOR_REFRESH: std::time::Duration = std::time::Duration::from_secs(2);
+
 pub struct Collector {
     system: System,
     networks: Networks,
     disks: Disks,
     components: Components,
+    components_at: Instant,
     users: Users,
     gpu: GpuCollector,
     previous: Instant,
@@ -92,6 +95,7 @@ impl Collector {
             networks,
             disks: Disks::new_with_refreshed_list(),
             components: Components::new_with_refreshed_list(),
+            components_at: now,
             users: Users::new_with_refreshed_list(),
             gpu: GpuCollector::new(gpu),
             previous: now,
@@ -139,7 +143,12 @@ impl Collector {
             );
         }
         self.networks.refresh(true);
-        self.components.refresh(true);
+        // Reading every hardware sensor costs far more than the rest of a sample put together
+        // on macOS, and temperatures move slowly, so refresh them at most every two seconds.
+        if began.duration_since(self.components_at) >= SENSOR_REFRESH {
+            self.components.refresh(true);
+            self.components_at = began;
+        }
         if self.cycles.is_multiple_of(5) {
             self.disks.refresh_specifics(
                 true,
