@@ -1,6 +1,6 @@
 # Features and platform limits
 
-rstop targets a local Linux/macOS/Windows TUI. Web services, remote monitoring, remote containers, and cloud exporters are outside scope. Implemented fields, successful builds, and real hardware validation are separate claims.
+rstop targets a local Linux/macOS/Windows TUI; `rstop [user@]host` runs that TUI on a Linux/macOS host through the system SSH client. Web services, remote monitoring agents or aggregation, remote container APIs, and cloud exporters are outside scope. Implemented fields, successful builds, and real hardware validation are separate claims.
 
 ## Information layout
 
@@ -33,7 +33,7 @@ rstop targets a local Linux/macOS/Windows TUI. Web services, remote monitoring, 
 - Themes/colors, nested layouts, column selection/windowing, ASCII/no-color output, pause, sampling/history controls, sustained alerts/recovery, optional local alert commands, JSON/JSONL/CSV/SVG, bounded recording, and local replay are implemented.
 - Network shows interfaces, traffic history and connections together. Small terminals keep both independently scrollable tables visible. Connection tables separate process names and PIDs. Connections provide 18 sort fields; interfaces provide 17. `F4` opens the chooser (including reverse order; `s` remains an alias) and column headers select/toggle sorting. Numeric counters use raw values, unknowns stay last in both directions, and selecting a hidden metric exposes that column. Explicit object selection survives resorting.
 - Resource diagnosis (`R`) combines current threshold checks, evidence, next steps, relevant retained trends and alert/recovery records. `O` opens contextual extended details. Explorer/History/Events are no longer separate navigation pages; legacy view arguments map to System/Overview.
-- Public command entry points share the `rstop` executable: `rstop snapshot`, `rstop sample`, `rstop record`, `rstop replay`, `rstop export`, `rstop gpu`, `rstop network`, `rstop doctor`, `rstop config`, `rstop completions`, `rstop man`, and `rstop update`. The monitor is the default command. Legacy action flags remain hidden for existing scripts.
+- Public command entry points share the `rstop` executable: `rstop snapshot`, `rstop sample`, `rstop record`, `rstop replay`, `rstop export`, `rstop gpu`, `rstop network`, `rstop doctor`, `rstop config`, `rstop completions`, `rstop man`, and `rstop update`. The monitor is the default command. `rstop [user@]host[:port]` opens the monitor on another host over SSH. Legacy action flags remain hidden for existing scripts.
 
 ## Charts and resource use
 
@@ -70,6 +70,7 @@ Shortcuts are offered only when a target/platform supports them. Live inspection
 - Configuration gaps include custom core-temperature maps, subtree resource aggregation, per-row CPU histories, persistent disk/sensor/interface rules, selected battery controls, configurable meters, and full theme/preset controls. Generic probes do not replace dedicated vendor backends or specialized counters.
 - Intel PMU, vendor-specific GPU/NPU SDKs, all media engines, sensors, SMART/RAID controllers, and driver combinations are not fully covered. MIG/NVLink/ECC parsing exists but has no acceptance evidence on this host.
 - macOS currently enumerates user launchd; system domains, plist discovery, and associated configuration/load behavior remain incomplete. Windows/macOS service/GPU/disk/process hardware features require native-machine acceptance beyond generic CI.
+- SSH monitoring needs a local OpenSSH client and a POSIX `sh` on Linux/macOS destinations; Windows hosts are not remote targets. Automatic copying requires a matching OS/architecture, and Linux copies need a compatible glibc. OpenSSH for Windows lacks connection sharing, so Windows clients may prompt for each connection step. Only the interactive monitor is remote; snapshots, recordings and doctor run through `ssh` directly.
 - Native CI checks Linux/macOS/Windows; release jobs build all six supported targets. Build/test success establishes compatibility, not hardware feature coverage. Podman, libvirt/LXC, local Kubernetes, Ascend, and optional bpftrace permission paths have not all been exercised.
 
 ## Reference projects

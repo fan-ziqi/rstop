@@ -1,5 +1,6 @@
 mod commands;
 mod export;
+mod remote;
 mod runtime;
 
 use anyhow::{Context, Result};
@@ -21,7 +22,8 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(
     version,
-    about = "One terminal. Your whole system. CPU, GPU, containers and services."
+    about = "One terminal. Your whole system. CPU, GPU, containers and services.",
+    after_help = "Monitor another host over SSH: rstop [OPTIONS] [user@]host[:port] [gpu|network]\nAlso accepts ssh://[user@]host[:port] and ~/.ssh/config aliases."
 )]
 pub struct Args {
     #[command(subcommand)]
@@ -103,6 +105,10 @@ fn main() -> Result<()> {
     let mut args = Args::parse();
     ctrlc::set_handler(|| STOP.store(true, Ordering::Relaxed))
         .context("Cannot install shutdown handler")?;
+    if let Some(commands::Command::Remote(external)) = &args.command {
+        let (destination, args) = remote::split(external);
+        return remote::run(&destination, args);
+    }
     if commands::dispatch(&mut args)? {
         return Ok(());
     }

@@ -60,6 +60,9 @@ pub enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Any other first word is an SSH destination for remote monitoring
+    #[command(external_subcommand)]
+    Remote(Vec<String>),
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -188,6 +191,7 @@ pub fn dispatch(args: &mut Args) -> Result<bool> {
             update(check)?;
             return Ok(true);
         }
+        Command::Remote(_) => unreachable!("main handles SSH destinations"),
     }
     Ok(false)
 }

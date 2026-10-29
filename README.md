@@ -68,9 +68,17 @@ rstop export svg screen.svg --samples 30
 rstop gpu select --count 1 --min-free-mib 8192
 rstop network connections --filter port:443 --sort download --json
 rstop doctor --input session.jsonl --view storage --json
+rstop alice@gpu-server                     # Monitor another host over SSH
+rstop alice@10.0.0.5:2222 gpu --read-only
 ```
 
 `rstop --help` lists commands; each subcommand has its own `--help`. Generate a manual with `rstop man` or shell completions with `rstop completions bash` (also zsh, fish, PowerShell and Elvish).
+
+### Remote hosts
+
+Pass an SSH destination to monitor another Linux or macOS host: `[user@]host[:port]`, `ssh://[user@]host[:port]`, `[user@][IPv6]:port` or an `~/.ssh/config` alias. rstop runs the system `ssh` client, so password prompts, keys, host-key checks, jump hosts and `~/.ssh/config` work as usual; on Linux and macOS a single connection is shared, so you enter the password once. The remote host runs its own rstop in the SSH terminal: pages, actions and configuration all belong to that host, and `q` returns to your shell. Display and permission options are forwarded (`--interval`, `--theme`, `--view`, `--layout`, `--gpu-panel`, `--read-only`, `--no-gpu`, `--ascii`, `--no-color`, `--threads`, `--process-network`, `--full-sampling`, `--no-config-exec`), as are `rstop HOST gpu` and `rstop HOST network`.
+
+rstop starts the first remote `rstop` found on `PATH`, in `~/.local/bin`, `~/.cargo/bin`, `/opt/homebrew/bin` or `/usr/local/bin`. If none is installed and the host has the same OS and architecture, rstop copies its own executable to the remote user's `~/.cache/rstop` (mode 700, replaced when the local build changes); Linux copies need a host glibc at least as new as the build's (2.35+ for release builds). Otherwise it prints the installer command to run there. Other commands run through ssh directly, for example `ssh alice@gpu-server rstop snapshot`. A host name that equals a subcommand needs a user or `ssh://` prefix.
 
 Snapshots and recordings include process command lines. Environments are read only on request and are not recorded; logs are excluded from telemetry. Recordings rotate at 64 MiB by default, retaining the current file and three older files. Replay input is limited to 512 MiB.
 
@@ -185,7 +193,7 @@ group_processes = false
 
 Themes: midnight, nord, ember, black, white, graphite, ocean, forest and sand. `--ascii`/`--no-color` support restricted terminals. Custom colors, nested layouts, selected sensors, graph scales, folders, alerts and local probes are defined in [the configuration schema](src/config.rs). [Process column identifiers](src/fields.rs).
 
-Selected extended process fields enable their collectors; expensive reads cache for five seconds. TASKSTATS requires kernel support and existing permissions. Configured probes/alert commands are opt-in argument arrays without a shell; `--no-config-exec` and read-only mode disable them. rstop does not start a web server or connect to remote monitoring/container services.
+Selected extended process fields enable their collectors; expensive reads cache for five seconds. TASKSTATS requires kernel support and existing permissions. Configured probes/alert commands are opt-in argument arrays without a shell; `--no-config-exec` and read-only mode disable them. rstop does not start a web server or connect to remote monitoring/container services; SSH monitoring runs rstop on the destination through your `ssh` client.
 
 ## License
 

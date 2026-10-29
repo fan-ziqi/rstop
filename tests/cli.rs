@@ -231,3 +231,53 @@ command = ["unused-not-run"]
     assert!(config.config_exec);
     assert!(!text.contains("config_exec"));
 }
+
+#[cfg(unix)]
+#[test]
+fn ssh_destinations_reject_local_only_modes_before_connecting() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = Fixture::new();
+    let marker = fixture.0.join("ssh-was-run");
+    let ssh = fixture.0.join("ssh");
+    fs::write(&ssh, format!("#!/bin/sh\ntouch {:?}\n", marker)).unwrap();
+    fs::set_permissions(&ssh, fs::Permissions::from_mode(0o755)).unwrap();
+    for (args, message) in [
+        (
+            &["alice@example.invalid", "snapshot"][..],
+            "interactive monitor only",
+        ),
+        (
+            &["alice@example.invalid", "doctor"],
+            "interactive monitor only",
+        ),
+        (
+            &["--samples", "2", "alice@example.invalid"],
+            "interactive monitor only",
+        ),
+        (
+            &["--config", "local.toml", "alice@example.invalid"],
+            "local file",
+        ),
+        (&["alice@example.invalid:http"], "Invalid SSH port"),
+        (
+            &["alice@example.invalid", "bob@example.invalid"],
+            "Unexpected argument",
+        ),
+        (&["alice@example.invalid", "--interval", "1"], "--interval"),
+        (
+            &["--ascii", "alice@example.invalid", "gpu", "-i", "500"],
+            "needs a terminal",
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_rstop"))
+            .args(args)
+            .env("PATH", &fixture.0)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{args:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(message), "{args:?}: {stderr}");
+    }
+    assert!(!marker.exists());
+}
