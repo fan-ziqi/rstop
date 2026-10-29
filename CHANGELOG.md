@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.7
+
 - Monitor another Linux or macOS host with `rstop [user@]host[:port]`. rstop opens the remote monitor through the system `ssh` client, asks for a password once on Linux and macOS, forwards display options, and copies itself to `~/.cache/rstop` on hosts without rstop when the OS and architecture match.
 
 ## 0.1.6
