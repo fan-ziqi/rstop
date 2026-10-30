@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.8
+
 - Add htop-colored per-core CPU bars for nice/user/kernel/steal/I/O wait with high-contrast colors, click/b/F5 mode switching, and automatic history on platforms or recordings without per-core timing.
 
 ## 0.1.7
