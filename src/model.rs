@@ -15,6 +15,8 @@ pub struct Snapshot {
     pub cpu_mhz: u64,
     pub cpu_breakdown: std::collections::BTreeMap<String, f64>,
     pub cores: Vec<f32>,
+    /// Per-core time shares, index-aligned with `cores`; empty when unavailable.
+    pub core_times: Vec<CoreTime>,
     pub core_temperatures: Vec<Option<f32>>,
     pub load: [f64; 3],
     pub memory: Memory,
@@ -31,6 +33,43 @@ pub struct Snapshot {
     pub alerts: Vec<String>,
     pub inventory: Inventory,
     pub extra: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+/// Shares of one CPU's time over the last sample, in percent of that CPU.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CoreTime {
+    /// User time; guest time is already counted here.
+    pub user: f32,
+    /// Low-priority (nice) user time.
+    pub nice: f32,
+    /// Kernel, hardware and software interrupt time.
+    pub system: f32,
+    /// Idle time spent waiting for I/O; not CPU execution.
+    pub iowait: f32,
+    /// Time taken by the hypervisor for other guests.
+    pub steal: f32,
+}
+
+impl CoreTime {
+    /// Group a `collector::cpu_breakdown` map; `None` when the map is empty.
+    pub fn from_breakdown(breakdown: &std::collections::BTreeMap<String, f64>) -> Option<Self> {
+        if breakdown.is_empty() {
+            return None;
+        }
+        let sum = |keys: &[&str]| {
+            keys.iter()
+                .filter_map(|key| breakdown.get(*key))
+                .sum::<f64>() as f32
+        };
+        Some(Self {
+            user: sum(&["user"]),
+            nice: sum(&["nice"]),
+            system: sum(&["system", "irq", "softirq"]),
+            iowait: sum(&["iowait"]),
+            steal: sum(&["steal"]),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

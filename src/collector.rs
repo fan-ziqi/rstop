@@ -61,6 +61,7 @@ pub struct Collector {
     disk_counters: HashMap<String, (u64, u64, u64)>,
     cycles: u64,
     cpu_counters: Vec<u64>,
+    core_counters: Vec<Vec<u64>>,
     advanced: crate::advanced::Advanced,
     physical_cores: Option<usize>,
     core_topology: Vec<Option<(u32, u32)>>,
@@ -92,6 +93,7 @@ impl Collector {
             .collect();
         let now = Instant::now();
         let core_topology = cpu_topology(&system);
+        let (cpu_counters, core_counters) = read_cpu_counters();
         Self {
             system,
             networks,
@@ -106,7 +108,8 @@ impl Collector {
             network_counters,
             disk_counters: read_disk_counters(),
             cycles: 0,
-            cpu_counters: read_cpu_counters(),
+            cpu_counters,
+            core_counters,
             advanced: Default::default(),
             physical_cores: System::physical_core_count(),
             core_topology,
@@ -407,9 +410,15 @@ impl Collector {
                 })
             })
             .collect();
-        let cpu_counters = read_cpu_counters();
+        let (cpu_counters, core_counters) = read_cpu_counters();
         let cpu_breakdown = cpu_breakdown(&self.cpu_counters, &cpu_counters);
+        let core_times = core_times(
+            &self.core_counters,
+            &core_counters,
+            self.system.cpus().len(),
+        );
         self.cpu_counters = cpu_counters;
+        self.core_counters = core_counters;
         let mut snapshot = Snapshot {
             timestamp: unix_time(),
             elapsed: self.boot.elapsed().as_secs_f64(),
@@ -440,6 +449,7 @@ impl Collector {
             },
             cpu_breakdown,
             cores: self.system.cpus().iter().map(|c| c.cpu_usage()).collect(),
+            core_times,
             core_temperatures: core_temperatures(&self.core_topology),
             load: [load.one, load.five, load.fifteen],
             memory,
@@ -537,19 +547,10 @@ pub fn rate(previous: Option<u64>, current: u64, seconds: f64) -> f64 {
     }
 }
 
-fn read_cpu_counters() -> Vec<u64> {
+fn read_cpu_counters() -> (Vec<u64>, Vec<Vec<u64>>) {
     #[cfg(target_os = "linux")]
     {
-        std::fs::read_to_string("/proc/stat")
-            .unwrap_or_default()
-            .lines()
-            .next()
-            .unwrap_or_default()
-            .split_whitespace()
-            .skip(1)
-            .take(10)
-            .filter_map(|v| v.parse().ok())
-            .collect()
+        parse_proc_stat(&std::fs::read_to_string("/proc/stat").unwrap_or_default())
     }
     #[cfg(target_os = "macos")]
     {
@@ -565,14 +566,17 @@ fn read_cpu_counters() -> Vec<u64> {
             )
         };
         if result != 0 {
-            return vec![];
+            return (vec![], vec![]);
         }
-        vec![
-            info.cpu_ticks[0] as u64,
-            info.cpu_ticks[3] as u64,
-            info.cpu_ticks[1] as u64,
-            info.cpu_ticks[2] as u64,
-        ]
+        (
+            vec![
+                info.cpu_ticks[0] as u64,
+                info.cpu_ticks[3] as u64,
+                info.cpu_ticks[1] as u64,
+                info.cpu_ticks[2] as u64,
+            ],
+            Vec::new(),
+        )
     }
     #[cfg(windows)]
     {
@@ -584,19 +588,67 @@ fn read_cpu_counters() -> Vec<u64> {
         let mut kernel = idle;
         let mut user = idle;
         if unsafe { GetSystemTimes(&mut idle, &mut kernel, &mut user) } == 0 {
-            return vec![];
+            return (vec![], vec![]);
         }
         let value = |v: FILETIME| ((v.dwHighDateTime as u64) << 32) | v.dwLowDateTime as u64;
-        vec![
-            value(user),
-            value(kernel).saturating_sub(value(idle)),
-            value(idle),
-        ]
+        (
+            vec![
+                value(user),
+                value(kernel).saturating_sub(value(idle)),
+                value(idle),
+            ],
+            Vec::new(),
+        )
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     {
-        vec![]
+        (vec![], vec![])
     }
+}
+
+/// Split `/proc/stat` CPU time counters into the aggregate and per-core rows, in file order.
+pub fn parse_proc_stat(text: &str) -> (Vec<u64>, Vec<Vec<u64>>) {
+    let mut aggregate = Vec::new();
+    let mut cores = Vec::new();
+    for line in text.lines() {
+        let mut fields = line.split_whitespace();
+        let Some(label) = fields.next() else {
+            continue;
+        };
+        if label == "cpu" {
+            aggregate = fields.take(10).filter_map(|v| v.parse().ok()).collect();
+            continue;
+        }
+        let Some(index) = label.strip_prefix("cpu") else {
+            continue;
+        };
+        if index.is_empty() || !index.bytes().all(|byte| byte.is_ascii_digit()) {
+            continue;
+        }
+        let row = fields
+            .take(10)
+            .map(|value| value.parse::<u64>())
+            .collect::<Result<Vec<_>, _>>();
+        if let Ok(row) = row
+            && matches!(row.len(), 8 | 10)
+        {
+            cores.push(row);
+        }
+    }
+    (aggregate, cores)
+}
+
+/// Per-core time shares from two samples; empty unless both are complete and aligned.
+pub fn core_times(previous: &[Vec<u64>], current: &[Vec<u64>], expected: usize) -> Vec<CoreTime> {
+    if previous.len() != current.len() || current.len() != expected || current.is_empty() {
+        return Vec::new();
+    }
+    previous
+        .iter()
+        .zip(current)
+        .map(|(previous, current)| CoreTime::from_breakdown(&cpu_breakdown(previous, current)))
+        .collect::<Option<Vec<_>>>()
+        .unwrap_or_default()
 }
 
 pub fn cpu_breakdown(previous: &[u64], current: &[u64]) -> std::collections::BTreeMap<String, f64> {

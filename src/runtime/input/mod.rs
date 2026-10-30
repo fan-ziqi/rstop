@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod cpu_tests;
 mod dialogs;
 #[cfg(test)]
 mod global_text_tests;
@@ -257,6 +259,7 @@ impl Input<'_> {
         }
         match key.code {
             KeyCode::F(5) => app.ui_menu = Some(app.display_menu()),
+            KeyCode::Char('b') if app.view == View::Overview => app.toggle_cpu_cores(),
             KeyCode::F(6) => {
                 app.ui_menu = Some(UiMenu::new(
                     if app.has_process_table() {

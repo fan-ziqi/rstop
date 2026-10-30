@@ -153,6 +153,8 @@ Spaces mean AND; space-delimited ` | ` means OR. Quotes, negation and numeric co
 
 `W` selects 15 seconds to one hour, subject to the 3,600-sample retention limit. Sampling speed is independent of the window. Chart titles retain units when compact layouts omit axes; memory utilization uses `%`, capacity uses `B`, and rates distinguish `B/s` from `bit/s`. Charts enter from the right, leave on the left, preserve peaks in aligned buckets and break at missing observations or long collection gaps. Startup leaves uncollected time blank; the menu reports the actual retained duration.
 
+Overview uses htop-style per-core bars when Linux per-core timing data is available: blue low-priority (`▒`), green user (`█`), red kernel/interrupt (`▓`), cyan steal (`▥`), then gray I/O wait (`░`). Busy segments share a fixed 0–100% scale; I/O wait follows execution because it is idle time. The header shows the aggregate split, while colored percentages highlight the busiest cores. Click the header's History/Bars button, press `b`, or use F5 View to switch modes; F2 also sets `display.cpu_cores`. Changes stay in the session until saved with `w`. Platforms, older recordings and first samples without per-core timing data always show per-core history with no mode toggle.
+
 CPU history fills upward and downward from the center, with green near zero, yellow midway and red near 100%. The upper and lower metrics are configurable; set `display.cpu_graph_lower = "none"` to show only the upper half.
 
 ## Inspect and manage
@@ -185,6 +187,7 @@ columns = ["pid", "user", "cpu", "memory", "vram", "gpu", "command"]
 
 [display]
 cpu_graph = "total"
+cpu_cores = "bars"       # bars / history
 temperature_unit = "celsius"
 network_interface = ""   # All visible interfaces
 network_bits = false

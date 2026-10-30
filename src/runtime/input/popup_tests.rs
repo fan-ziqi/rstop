@@ -187,7 +187,10 @@ fn settings_click_selects_then_arrows_adjust_and_save() {
         press(input, app, KeyCode::End);
         let rendered = draw(app, 60, 18);
         assert_eq!(app.setting_index, rstop::config::Config::SETTINGS_COUNT - 1);
-        assert!(text(&rendered, app.popup_rect).contains("32/32"));
+        assert!(
+            text(&rendered, app.popup_rect)
+                .contains(&format!("{0}/{0}", rstop::config::Config::SETTINGS_COUNT))
+        );
         assert!(
             app.dialog
                 .settings_rows

@@ -89,7 +89,7 @@ fn config_exec_enabled() -> bool {
 }
 
 impl Config {
-    pub const SETTINGS_COUNT: usize = 32;
+    pub const SETTINGS_COUNT: usize = 33;
     pub fn cycle_theme(&mut self, forward: bool) {
         let current = THEMES
             .iter()
@@ -251,6 +251,7 @@ impl Config {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Display {
+    pub cpu_cores: String,
     pub cpu_graph: String,
     pub cpu_graph_lower: String,
     pub temperature_unit: String,
@@ -274,6 +275,7 @@ pub struct Display {
 impl Default for Display {
     fn default() -> Self {
         Self {
+            cpu_cores: "bars".into(),
             cpu_graph: "total".into(),
             cpu_graph_lower: "total".into(),
             temperature_unit: "celsius".into(),
@@ -304,6 +306,10 @@ impl Display {
             ["all", "cpu", "memory", "gpu", "storage", "network"]
                 .contains(&self.overview_panel.as_str()),
             "Invalid overview panel"
+        );
+        anyhow::ensure!(
+            ["bars", "history"].contains(&self.cpu_cores.as_str()),
+            "Invalid CPU cores display (bars / history)"
         );
         anyhow::ensure!(
             Self::CPU_FIELDS.contains(&self.cpu_graph.as_str()),
@@ -409,6 +415,7 @@ impl Display {
                 self.group_processes.to_string(),
             ),
             ("Expanded overview panel", self.overview_panel.clone()),
+            ("CPU cores", self.cpu_cores.clone()),
         ]
     }
     pub fn adjust(&mut self, index: usize, forward: bool, networks: &[String], sensors: &[String]) {
@@ -479,6 +486,7 @@ impl Display {
                 &["all", "cpu", "memory", "gpu", "storage", "network"],
                 forward,
             ),
+            18 => cycle(&mut self.cpu_cores, &["bars", "history"], forward),
             _ => {}
         }
     }

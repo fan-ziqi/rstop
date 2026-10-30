@@ -50,6 +50,28 @@ pub fn time_label(seconds: u64) -> String {
 }
 
 impl App {
+    pub fn cpu_cores_supported(&self) -> bool {
+        !self.snapshot.core_times.is_empty()
+            && self.snapshot.core_times.len() == self.snapshot.cores.len()
+    }
+    pub fn toggle_cpu_cores(&mut self) {
+        if self.cpu_cores_supported() {
+            self.config.display.cpu_cores = if self.config.display.cpu_cores == "bars" {
+                "history"
+            } else {
+                "bars"
+            }
+            .into();
+        }
+    }
+    pub fn cpu_cores_target(&self) -> &'static str {
+        if self.config.display.cpu_cores == "bars" {
+            "History"
+        } else {
+            "Bars"
+        }
+    }
+
     pub fn process_commands(&self) -> Vec<(String, KeyCode)> {
         [
             ("Labels / related actions", KeyCode::Char('Y')),
@@ -218,6 +240,15 @@ impl App {
         } else {
             (vec![], 0)
         };
+        if self.view == View::Overview && self.cpu_cores_supported() {
+            items.push((
+                format!(
+                    "CPU cores: switch to {}",
+                    self.cpu_cores_target().to_lowercase()
+                ),
+                KeyCode::Char('b'),
+            ));
+        }
         items.extend([
             ("Chart time window".into(), KeyCode::Char('W')),
             ("Zoom in".into(), KeyCode::Char('z')),

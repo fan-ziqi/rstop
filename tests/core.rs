@@ -1,7 +1,7 @@
 use ratatui::{Terminal, backend::TestBackend};
 use rstop::{
     app::{App, Sort, View},
-    collector::{parse_diskstats, parse_pressure, rate},
+    collector::{core_times, parse_diskstats, parse_pressure, parse_proc_stat, rate},
     config::Config,
     discovery::{apply_container_stats, parse_containers, parse_listeners, parse_size},
     model::*,
@@ -147,6 +147,121 @@ fn local_only_container_endpoints_reject_remote_contexts() {
     ] {
         assert!(!is_local_endpoint(endpoint));
     }
+}
+
+#[test]
+fn proc_stat_parses_aggregate_and_present_cores_in_file_order() {
+    let text = "\
+cpu  100 20 30 400 50 6 7 8 9 10
+cpu0 40 5 10 100 12 1 2 3 0 0
+cpu2 30 10 10 200 25 3 3 2 0 0
+intr 1 2 3
+ctxt 98765
+btime 1234
+processes 567
+procs_running 2
+procs_blocked 0
+";
+    let (aggregate, cores) = parse_proc_stat(text);
+    assert_eq!(aggregate, vec![100, 20, 30, 400, 50, 6, 7, 8, 9, 10]);
+    assert_eq!(
+        cores,
+        vec![
+            vec![40, 5, 10, 100, 12, 1, 2, 3, 0, 0],
+            vec![30, 10, 10, 200, 25, 3, 3, 2, 0, 0],
+        ]
+    );
+}
+
+#[test]
+fn proc_stat_ignores_malformed_short_and_non_cpu_lines() {
+    let text = "\
+cpux 1 2 3 4 5 6 7 8
+cpu0 1 2 3
+cpu1 1 2 three 4 5 6 7 8
+cpu2 1 2 3 4 5 6 7 8
+cpu3 1 2 3 4 5 6 7 8 extra
+cpu4 1 2 3 4 5 6 7 8 9 10
+cpu  1 2 3 4 5 6 7 8 9 10
+";
+    let (aggregate, cores) = parse_proc_stat(text);
+    assert_eq!(aggregate, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert_eq!(
+        cores,
+        vec![
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        ]
+    );
+    assert_eq!(parse_proc_stat("intr 1\nctxt 2\n"), (vec![], vec![]));
+}
+
+#[test]
+fn per_core_cpu_times_diff_matching_samples_and_reject_misalignment() {
+    let previous = "\
+cpu  0 0 0 0 0 0 0 0
+cpu0 100 0 100 500 0 0 0 0
+cpu1 100 0 100 500 0 0 0 0
+";
+    let current = "\
+cpu  0 0 0 0 0 0 0 0
+cpu0 150 0 120 510 20 0 0 0
+cpu1 125 0 125 550 0 0 0 0
+";
+    let (_, previous) = parse_proc_stat(previous);
+    let (_, current) = parse_proc_stat(current);
+    assert_eq!(
+        core_times(&previous, &current, 2),
+        vec![
+            CoreTime {
+                user: 50.,
+                nice: 0.,
+                system: 20.,
+                iowait: 20.,
+                steal: 0.,
+            },
+            CoreTime {
+                user: 25.,
+                nice: 0.,
+                system: 25.,
+                iowait: 0.,
+                steal: 0.,
+            },
+        ]
+    );
+    assert!(core_times(&[], &current, 2).is_empty());
+    assert!(core_times(&previous, &current, 4).is_empty());
+    let mut hotplugged = previous.clone();
+    hotplugged.push(vec![0; 8]);
+    assert!(core_times(&hotplugged, &current, 2).is_empty());
+}
+
+#[test]
+fn core_time_groups_user_nice_system_and_iowait_shares() {
+    assert_eq!(CoreTime::from_breakdown(&Default::default()), None);
+    let breakdown: std::collections::BTreeMap<String, f64> = [
+        ("user", 10.),
+        ("nice", 5.),
+        ("system", 20.),
+        ("irq", 3.),
+        ("softirq", 2.),
+        ("iowait", 7.),
+        ("steal", 1.),
+        ("idle", 52.),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_string(), value))
+    .collect();
+    assert_eq!(
+        CoreTime::from_breakdown(&breakdown),
+        Some(CoreTime {
+            user: 10.,
+            nice: 5.,
+            system: 25.,
+            iowait: 7.,
+            steal: 1.,
+        })
+    );
 }
 
 #[test]

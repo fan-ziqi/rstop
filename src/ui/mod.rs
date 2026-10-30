@@ -1,4 +1,5 @@
 mod controls;
+mod cpu;
 mod details;
 mod dialogs;
 mod gpu;
@@ -37,6 +38,11 @@ pub struct Palette {
     pub border: Color,
     pub muted: Color,
     pub text: Color,
+    pub cpu_nice: Color,
+    pub cpu_user: Color,
+    pub cpu_system: Color,
+    pub cpu_steal: Color,
+    pub cpu_wait: Color,
     pub mint: Color,
     pub blue: Color,
     pub purple: Color,
@@ -58,6 +64,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(226, 186, 111),
             red: Color::Rgb(239, 146, 154),
             selection: Color::Rgb(25, 41, 48),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         "white" => Palette {
             bg: Color::Rgb(245, 247, 250),
@@ -71,6 +82,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(132, 84, 14),
             red: Color::Rgb(174, 42, 59),
             selection: Color::Rgb(224, 234, 246),
+            cpu_nice: Color::Rgb(35, 90, 190),
+            cpu_user: Color::Rgb(25, 120, 55),
+            cpu_system: Color::Rgb(190, 45, 55),
+            cpu_steal: Color::Rgb(0, 115, 135),
+            cpu_wait: Color::Rgb(100, 100, 100),
         },
         "graphite" => Palette {
             bg: Color::Rgb(22, 22, 24),
@@ -84,6 +100,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(213, 189, 143),
             red: Color::Rgb(224, 158, 166),
             selection: Color::Rgb(49, 51, 58),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         "ocean" => Palette {
             bg: Color::Rgb(8, 24, 36),
@@ -97,6 +118,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(218, 189, 137),
             red: Color::Rgb(232, 154, 169),
             selection: Color::Rgb(22, 58, 79),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         "forest" => Palette {
             bg: Color::Rgb(13, 24, 19),
@@ -110,6 +136,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(216, 188, 133),
             red: Color::Rgb(224, 158, 151),
             selection: Color::Rgb(36, 57, 42),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         "sand" => Palette {
             bg: Color::Rgb(244, 237, 224),
@@ -123,6 +154,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(135, 86, 25),
             red: Color::Rgb(171, 53, 48),
             selection: Color::Rgb(232, 219, 196),
+            cpu_nice: Color::Rgb(35, 90, 190),
+            cpu_user: Color::Rgb(25, 120, 55),
+            cpu_system: Color::Rgb(190, 45, 55),
+            cpu_steal: Color::Rgb(0, 115, 135),
+            cpu_wait: Color::Rgb(100, 100, 100),
         },
         "nord" => Palette {
             bg: Color::Rgb(29, 35, 46),
@@ -136,6 +172,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(204, 184, 143),
             red: Color::Rgb(214, 159, 167),
             selection: Color::Rgb(52, 66, 84),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         "ember" => Palette {
             bg: Color::Rgb(22, 18, 24),
@@ -149,6 +190,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(207, 184, 138),
             red: Color::Rgb(215, 151, 161),
             selection: Color::Rgb(65, 43, 53),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
         _ => Palette {
             bg: Color::Rgb(10, 15, 25),
@@ -162,6 +208,11 @@ pub fn palette(name: &str) -> Palette {
             amber: Color::Rgb(204, 179, 141),
             red: Color::Rgb(216, 151, 160),
             selection: Color::Rgb(29, 51, 70),
+            cpu_nice: Color::Rgb(88, 152, 255),
+            cpu_user: Color::Rgb(80, 200, 100),
+            cpu_system: Color::Rgb(255, 100, 110),
+            cpu_steal: Color::Rgb(65, 205, 225),
+            cpu_wait: Color::Rgb(170, 170, 170),
         },
     }
 }
@@ -474,14 +525,17 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 if !value.is_ascii() {
                     let mapped = match value {
                         '─' | '━' => '-',
-                        '│' | '┼' => '|',
+                        '│' | '┼' | '▕' | '▏' => '|',
                         '╭' | '╮' | '╰' | '╯' => '+',
                         '↑' => '^',
                         '↓' => 'v',
                         '←' => '<',
                         '→' => '>',
                         '▸' => '>',
-                        '█' | '▏' | '▎' | '▍' | '▌' | '▋' | '▊' | '▉' => '#',
+                        '▒' => ':',
+                        '▓' => '=',
+                        '▥' => '~',
+                        '█' | '▎' | '▍' | '▌' | '▋' | '▊' | '▉' => '#',
                         '░' => '.',
                         '┄' | '—' => '-',
                         '●' | '◉' => 'o',

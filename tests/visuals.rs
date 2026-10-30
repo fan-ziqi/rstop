@@ -168,7 +168,9 @@ fn overview_preserves_resource_metrics_and_gives_charts_most_of_the_screen() {
         second_gpu.id = 1;
         second_gpu.uuid = "second-test-gpu".into();
         snapshot.gpus.push(second_gpu);
-        let mut app = App::new(Config::default());
+        let mut config = Config::default();
+        config.display.cpu_cores = "history".into();
+        let mut app = App::new(config);
         for index in 0..180 {
             snapshot.elapsed = index as f64;
             for (core, value) in snapshot.cores.iter_mut().enumerate() {

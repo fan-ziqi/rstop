@@ -1,6 +1,7 @@
 use super::{
     Palette, block,
     charts::{Series, Trend, chart},
+    cpu::{core_bar, core_header, valid},
     health, meter, optional, optional_bytes,
     processes::process_table,
     resources::storage_view,
@@ -8,9 +9,13 @@ use super::{
 };
 use crate::{
     app::{App, is_loopback},
-    model::{bytes, percent},
+    model::{CoreTime, bytes, percent},
 };
+use crossterm::event::KeyCode;
 use ratatui::prelude::*;
+
+// Fits the full five-color legend and the mode button.
+const CPU_FULL_LEGEND_WIDTH: usize = 106;
 
 fn gpu_panel_visible(app: &App) -> bool {
     app.config.collect_gpu || app.replay && !app.snapshot.gpus.is_empty()
@@ -174,7 +179,7 @@ fn fit(value: &str, width: usize) -> String {
     result
 }
 
-pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
+pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &mut App, p: Palette) {
     let s = &app.snapshot;
     let mut average = if area.width >= 86 {
         format!(
@@ -289,11 +294,14 @@ pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
             1
         },
     );
+    let supported = app.cpu_cores_supported();
+    let bars = supported && app.config.display.cpu_cores == "bars";
     let min_grid = columns * min_cell;
     let wide = content.width as usize >= min_grid + 26;
     let (history, cores) = if wide {
         let core_width = (columns * (label_width + 21 + temperature_width))
             .max(min_grid)
+            .max(if bars { CPU_FULL_LEGEND_WIDTH } else { 0 })
             .min(content.width as usize - 26);
         let panes =
             Layout::horizontal([Constraint::Min(24), Constraint::Length(core_width as u16)])
@@ -321,23 +329,55 @@ pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     }
     let rows = s.cores.len().div_ceil(columns).max(1);
     let shown = rows.min(cores.height.saturating_sub(1) as usize);
+    let target = app.cpu_cores_target();
+    let toggle_width = (target.len() + 5) as u16;
+    let show_toggle = supported && cores.width >= toggle_width;
+    let heading_width = cores
+        .width
+        .saturating_sub(if show_toggle { toggle_width + 1 } else { 0 });
+    let aggregate = CoreTime::from_breakdown(&s.cpu_breakdown);
     text(
         frame,
-        Rect::new(cores.x, cores.y, cores.width, 1),
-        Line::styled(
-            if shown < rows {
-                format!(
-                    "Per-core history · {}/{}",
-                    (shown * columns).min(s.cores.len()),
-                    s.cores.len()
-                )
-            } else {
-                "Per-core history".into()
-            },
-            Style::new().fg(p.muted),
-        ),
+        Rect::new(cores.x, cores.y, heading_width, 1),
+        if bars {
+            core_header(
+                aggregate,
+                aggregate.is_some_and(|t| t.steal > 0.)
+                    || s.core_times.iter().any(|t| t.steal > 0.),
+                (shown * columns).min(s.cores.len()),
+                s.cores.len(),
+                heading_width as usize,
+                p,
+            )
+        } else {
+            Line::styled(
+                if shown < rows {
+                    format!(
+                        "Per-core history · {}/{}",
+                        (shown * columns).min(s.cores.len()),
+                        s.cores.len()
+                    )
+                } else {
+                    "Per-core history".into()
+                },
+                Style::new().fg(p.muted),
+            )
+        },
         p,
     );
+    if show_toggle {
+        let rect = Rect::new(cores.right() - toggle_width, cores.y, toggle_width, 1);
+        super::controls::nav_button(
+            frame,
+            rect,
+            KeyCode::Char('b'),
+            target,
+            false,
+            p,
+            p.selection,
+        );
+        app.controls.push((rect, KeyCode::Char('b')));
+    }
     let cell_width = cores.width as usize / columns;
     for (index, value) in s.cores.iter().enumerate() {
         if index % rows >= shown {
@@ -356,7 +396,27 @@ pub(super) fn cpu(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
             p,
         );
         let graph_width = cell_width.saturating_sub(label_width + 9 + temperature_width) as u16;
-        if let Some(values) = app.history.series.get(&format!("CPU core {index:03} (%)")) {
+        if let Some(times) = s
+            .core_times
+            .get(index)
+            .copied()
+            .filter(|t| bars && valid(*t))
+        {
+            let mut spans = vec![Span::styled("▕", Style::new().fg(p.muted))];
+            spans.extend(core_bar(
+                *value,
+                times,
+                graph_width.saturating_sub(2) as usize,
+                p,
+            ));
+            spans.push(Span::styled("▏", Style::new().fg(p.muted)));
+            text(
+                frame,
+                Rect::new(x + label_width as u16 + 1, y, graph_width, 1),
+                Line::from(spans),
+                p,
+            );
+        } else if let Some(values) = app.history.series.get(&format!("CPU core {index:03} (%)")) {
             Trend {
                 series: &[("Core", values, color)],
                 // Keep the top braille dot row clear between adjacent sparklines.

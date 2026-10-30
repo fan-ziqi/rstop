@@ -1,12 +1,13 @@
 use super::{
     Palette, block,
     charts::chart,
+    cpu::{CPU_GLYPHS, cpu_time_colors, time_track},
     health, optional,
     visuals::{self, Stat, field, metric_cell},
 };
 use crate::{
     app::App,
-    model::{bytes, duration, percent},
+    model::{CoreTime, bytes, duration, percent},
 };
 use ratatui::{prelude::*, widgets::*};
 
@@ -384,6 +385,7 @@ fn pressure(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
     frame.render_widget(b, area);
     let mut lines = vec![];
     let width = inner.width.saturating_sub(19) as usize;
+    let colors = cpu_time_colors(p);
     if inner.height < 10 {
         let mut spans = vec![Span::styled(
             format!(" CPU {:5.1}% ", s.cpu_percent),
@@ -397,21 +399,24 @@ fn pressure(frame: &mut Frame, area: Rect, app: &App, p: Palette) {
             p,
         ));
         lines.push(Line::from(spans));
-    } else {
-        for (key, color) in [
-            ("user", p.mint),
-            ("system", p.blue),
-            ("iowait", p.amber),
-            ("steal", p.red),
-        ] {
-            if let Some(value) = s.cpu_breakdown.get(key) {
-                let mut spans = vec![Span::styled(
-                    format!(" {key:<7} {value:5.1}% "),
-                    Style::new().fg(color),
-                )];
-                spans.extend(visuals::track(Some(*value), 100., width, color, p));
-                lines.push(Line::from(spans));
-            }
+    } else if let Some(times) = CoreTime::from_breakdown(&s.cpu_breakdown) {
+        for (index, (key, value)) in [
+            ("nice", times.nice),
+            ("user", times.user),
+            ("system", times.system),
+            ("steal", times.steal),
+            ("iowait", times.iowait),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let color = colors[index];
+            let mut spans = vec![Span::styled(
+                format!(" {key:<7} {value:5.1}% "),
+                Style::new().fg(color),
+            )];
+            spans.extend(time_track(value, width, CPU_GLYPHS[index], color, p));
+            lines.push(Line::from(spans));
         }
     }
     lines.push(Line::styled(

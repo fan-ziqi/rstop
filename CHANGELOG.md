@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add htop-colored per-core CPU bars for nice/user/kernel/steal/I/O wait with high-contrast colors, click/b/F5 mode switching, and automatic history on platforms or recordings without per-core timing.
+
 ## 0.1.7
 
 - Monitor another Linux or macOS host with `rstop [user@]host[:port]`. rstop opens the remote monitor through the system `ssh` client, asks for a password once on Linux and macOS, forwards display options, and copies itself to `~/.cache/rstop` on hosts without rstop when the OS and architecture match.
