@@ -233,7 +233,7 @@ impl App {
         let sort = Sort::from_stored(config.sort_index);
         let reverse = config.reverse_sort;
         let tree = config.tree;
-        Self {
+        let mut app = Self {
             main_menu: None,
             config,
             events: Default::default(),
@@ -334,7 +334,11 @@ impl App {
             table_offset: 0,
             table_rect: ratatui::layout::Rect::default(),
             tab_ranges: vec![],
-        }
+        };
+        // Startup must reserve the same retention as an interactive window change.
+        // Otherwise fast refresh rates evict data before the visible window fills.
+        app.set_time_window(app.config.time_window_seconds);
+        app
     }
 
     pub fn views(&self) -> Vec<View> {

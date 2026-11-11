@@ -141,6 +141,35 @@ fn editors_do_not_move_tables_and_dialogs_dim_only_the_background() {
 }
 
 #[test]
+fn startup_retention_covers_the_time_window_at_fast_refresh_rates() {
+    for interval_ms in [250, 500, 750, 1000] {
+        let mut app = App::new(Config {
+            interval_ms,
+            ..Default::default()
+        });
+        for index in 0..=180_000 / interval_ms {
+            app.ingest(Snapshot {
+                elapsed: index as f64 * interval_ms as f64 / 1000.,
+                cpu_percent: 50.,
+                ..Default::default()
+            });
+        }
+        let columns = app.plot_window().project(&app.history.cpu, 120);
+        assert!(
+            columns.iter().all(Option::is_some),
+            "{interval_ms}ms refresh must retain the entire three-minute chart"
+        );
+    }
+    let app = App::new(Config {
+        time_window_seconds: 0,
+        history: 60,
+        ..Default::default()
+    });
+    assert_eq!(app.config.history, 60);
+    assert_eq!(app.graph_window, 60);
+}
+
+#[test]
 fn workload_keys_are_unique_and_visible_windows_respect_retention() {
     for actions in [
         rstop::management::service_actions(),

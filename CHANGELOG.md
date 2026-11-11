@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.9
+
+- Retain enough history at startup to fill the selected time window at fast refresh rates, fixing persistent empty space on the left of charts.
+- Label uncollected chart history with `No history` while preserving sample positions and gaps.
+
 ## 0.1.8
 
 - Add htop-colored per-core CPU bars for nice/user/kernel/steal/I/O wait with high-contrast colors, click/b/F5 mode switching, and automatic history on platforms or recordings without per-core timing.

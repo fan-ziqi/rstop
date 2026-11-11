@@ -432,6 +432,7 @@ fn platform_cpu_state_counts_accept_native_three_and_four_states() {
 fn gpu_history_is_bounded_and_missing_counters_remain_unknown() {
     let mut app = App::new(Config {
         history: 30,
+        time_window_seconds: 0,
         ..Default::default()
     });
     for timestamp in 0..40 {

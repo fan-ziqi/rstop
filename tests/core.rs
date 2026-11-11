@@ -414,6 +414,7 @@ fn malformed_parent_cycles_terminate_without_duplicate_rows() {
 fn history_is_bounded_and_accepts_each_new_sample() {
     let mut app = App::new(Config {
         history: 30,
+        time_window_seconds: 0,
         ..Config::default()
     });
     for i in 0..100 {
@@ -545,6 +546,7 @@ fn memory_histories_preserve_all_four_metrics_and_missing_recorded_values() {
     assert_eq!(old.cached, None);
     let mut app = App::new(Config {
         history: 2,
+        time_window_seconds: 0,
         ..Default::default()
     });
     let mut snapshot = Snapshot {
@@ -571,6 +573,7 @@ fn memory_histories_preserve_all_four_metrics_and_missing_recorded_values() {
 fn network_top_is_a_session_peak_of_simultaneous_traffic_in_each_scope() {
     let mut app = App::new(Config {
         history: 2,
+        time_window_seconds: 0,
         ..Default::default()
     });
     let mut snapshot = Snapshot {

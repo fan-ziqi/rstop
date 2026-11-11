@@ -197,8 +197,11 @@ impl Widget for Raster<'_> {
             bits[index] |= 1 << DOTS[x % 2][y % 4];
             colors[index] = row_colors.as_ref().map_or(color, |rows| rows[y / 4]);
         };
+        let mut first_column = width;
         for (_, values, color) in self.0.series {
             let columns = self.0.window.project(values, width);
+            first_column =
+                first_column.min(columns.iter().position(Option::is_some).unwrap_or(width));
             let mut previous = None;
             for (x, range) in columns.iter().enumerate() {
                 let Some(range) = range else {
@@ -233,6 +236,18 @@ impl Widget for Raster<'_> {
                         .set_fg(colors[index]);
                 }
             }
+        }
+        // Explain leading empty time without inventing measurements or stretching
+        // existing history. Single-row sparklines stay dedicated to their data.
+        let empty_cells = first_column / 2;
+        let label = "No history";
+        if area.height >= 2 && empty_cells >= label.len() + 2 {
+            buffer.set_string(
+                area.x + ((empty_cells - label.len()) / 2) as u16,
+                area.y + area.height / 2,
+                label,
+                Style::new().fg(self.0.palette.muted),
+            );
         }
     }
 }
@@ -479,6 +494,52 @@ pub(super) fn gpu_plot(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn leading_empty_time_is_labeled_without_covering_data_or_internal_gaps() {
+        let area = Rect::new(3, 2, 40, 6);
+        for (values, height, labeled) in [
+            (VecDeque::from([50.; 8]), 6, true),
+            (VecDeque::new(), 6, true),
+            (VecDeque::from([50.; 80]), 6, false),
+            (VecDeque::from([50.; 8]), 1, false),
+            (
+                [50.]
+                    .into_iter()
+                    .chain([f64::NAN; 78])
+                    .chain([50.])
+                    .collect(),
+                6,
+                false,
+            ),
+        ] {
+            let rect = Rect { height, ..area };
+            let mut buffer = Buffer::empty(Rect::new(0, 0, 46, 10));
+            let trend = Trend {
+                series: &[("CPU", &values, Color::Green)],
+                max: 100.,
+                window: Window {
+                    samples: 80,
+                    end: values.len() as u64,
+                    time: None,
+                },
+                palette: super::super::palette("midnight"),
+                axes: false,
+                unit: "%",
+            };
+            Raster(&trend, false, None).render(rect, &mut buffer);
+            let text: String = buffer.content.iter().map(|c| c.symbol()).collect();
+            assert_eq!(text.contains("No history"), labeled);
+            if !values.is_empty() {
+                assert!(
+                    buffer[(rect.right() - 1, rect.bottom() - 1)]
+                        .symbol()
+                        .chars()
+                        .any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
+                );
+            }
+        }
+    }
 
     fn braille_dot(buffer: &Buffer, x: usize, y: usize) -> bool {
         const DOTS: [[u8; 4]; 2] = [[0, 1, 2, 6], [3, 4, 5, 7]];

@@ -155,6 +155,7 @@ fn selecting_a_new_process_holds_its_position_when_more_processes_arrive() {
 fn selected_histories_are_bounded_reset_on_target_change_and_use_device_attribution() {
     let mut app = App::new(Config {
         history: 30,
+        time_window_seconds: 0,
         ..Default::default()
     });
     app.ingest(snapshot(0));
