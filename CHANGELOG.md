@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.10
+
+- Remove the `No history` placeholder from charts, leaving uncollected history blank.
+
 ## 0.1.9
 
 - Retain enough history at startup to fill the selected time window at fast refresh rates, fixing persistent empty space on the left of charts.
