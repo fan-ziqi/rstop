@@ -3,10 +3,7 @@ use super::sampling::{Needs, Sources};
 use rstop::{STOP, config::Config, discovery, model::Inventory};
 use std::{
     collections::BTreeMap,
-    sync::{
-        Arc, RwLock,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::{Arc, RwLock, atomic::Ordering},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -45,13 +42,11 @@ impl Source {
 #[derive(Default)]
 pub(super) struct Cache {
     samples: BTreeMap<Source, Inventory>,
-    pub revision: Arc<AtomicU64>,
 }
 
 impl Cache {
     fn publish(&mut self, source: Source, data: Inventory) {
         self.samples.insert(source, data);
-        self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn snapshot(&self) -> Inventory {
@@ -191,6 +186,5 @@ mod tests {
         assert!(data.service_managers.is_empty());
         assert!(data.notes.is_empty());
         assert_eq!(data.runtimes, ["docker"]);
-        assert_eq!(cache.revision.load(Ordering::Relaxed), 3);
     }
 }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.11
+
+- Keep background discovery updates, including macOS GPU polling, from triggering extra telemetry samples and shortening chart history.
+
 ## 0.1.10
 
 - Remove the `No history` placeholder from charts, leaving uncollected history blank.

@@ -1,6 +1,10 @@
 //! Basic processes are sampled from startup; optional page sources stay active once opened.
 use rstop::app::View;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 const PROCESSES: u8 = 1;
 const GPU_PROCESSES: u8 = 2;
 const CONNECTIONS: u8 = 4;
@@ -17,6 +21,17 @@ pub(super) struct Needs {
     pub containers: bool,
     pub services: bool,
     pub extras: bool,
+}
+
+pub(super) fn wait_for_sample(until: Instant, sources: &Sources, needed: Needs) {
+    // Discovery (including macOS GPU polling) must not shorten the history
+    // sample period. The next scheduled sample picks up the latest inventory.
+    while Instant::now() < until
+        && sources.needs() == needed
+        && !rstop::STOP.load(Ordering::Relaxed)
+    {
+        thread::park_timeout(Duration::from_millis(20));
+    }
 }
 impl Sources {
     pub fn new(full: bool) -> Self {
@@ -51,6 +66,18 @@ impl Sources {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn background_updates_do_not_advance_the_sample_deadline() {
+        let sources = Sources::new(false);
+        let deadline = Instant::now() + Duration::from_millis(60);
+        thread::current().unpark();
+        wait_for_sample(deadline, &sources, sources.needs());
+        assert!(
+            Instant::now() >= deadline,
+            "Background GPU updates must not create extra history samples"
+        );
+    }
+
     #[test]
     fn basic_processes_start_immediately_and_optional_sources_stay_active_once_opened() {
         let sources = Sources::new(false);

@@ -48,7 +48,6 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                 .is_some_and(|l| l.contains_panel("processes")),
     );
     let initial_inventory = inventory::Cache::default();
-    let inventory_revision = initial_inventory.revision.clone();
     let inventory = Arc::new(RwLock::new(initial_inventory));
     let connection_worker = args.replay.is_none().then(|| {
         let sources = sources.clone();
@@ -122,11 +121,9 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                             .expect("live collector")
                             .collect_selected(&config, needed.processes, needed.gpu_processes)
                     };
-                    let mut sampled_revision = 0;
                     if replay_data.is_none()
                         && let Ok(current) = inventory.read()
                     {
-                        sampled_revision = current.revision.load(Ordering::Relaxed);
                         data.apply_inventory(current.snapshot());
                     }
                     if let Some(cache) = &connections
@@ -177,13 +174,7 @@ pub fn run(args: &crate::Args, config: Config, path: PathBuf) -> Result<()> {
                     } else {
                         began + Duration::from_millis(config.interval_ms)
                     };
-                    while Instant::now() < until
-                        && sources.needs() == needed
-                        && inventory_revision.load(Ordering::Relaxed) == sampled_revision
-                        && !STOP.load(Ordering::Relaxed)
-                    {
-                        thread::park_timeout(Duration::from_millis(20));
-                    }
+                    sampling::wait_for_sample(until, &sources, needed);
                 }
             })?
     };
